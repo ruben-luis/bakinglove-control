@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Colores BKL ─────────────────────────────────────── */
+  --color-ink:        #2B2731;
+  --color-cream:      #FBFAFB;
+
+  --color-pink-soft:  #FBE0E8;
+  --color-pink:       #F4A9BE;
+  --color-pink-deep:  #D9748F;
+
+  --color-sky-soft:   #DEECF8;
+  --color-sky:        #A6CDEC;
+  --color-sky-deep:   #6298CB;
+
+  --color-mint-soft:  #E0EDDA;
+  --color-mint:       #AFCBA0;
+  --color-mint-deep:  #74A05F;
+
+  --color-lilac-soft: #E9E0F6;
+  --color-lilac:      #C3B0E6;
+  --color-lilac-deep: #8F73C6;
+
+  /* ── Tipografía ──────────────────────────────────────── */
+  --font-sans:        "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display:     Quicksand, "Plus Jakarta Sans", sans-serif;
+
+  /* ── Sombras hard (estilo Gumroad) ───────────────────── */
+  --shadow-hard:    4px 4px 0 #2B2731;
+  --shadow-hard-lg: 7px 7px 0 #2B2731;
+  --shadow-hard-sm: 3px 3px 0 #2B2731;
+}
+
+/* Reset base */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: #FBFAFB; }
+#root { width: 100%; min-height: 100dvh; }
+
+/* ── Textura de fondo configurable ───────────────────────
+   Cambia --bg-texture por la URL de tu propio patrón.
+   También puedes usar bg-[url('/mi-patron.png')] en Tailwind */
+:root {
+  --bg-texture: url('/sprinkle-pattern.jpeg');
+}
+.bkl-texture {
+  background-image: var(--bg-texture);
+  background-size: 360px;
+  background-repeat: repeat;
+}
+
+/* ── Animación flotante de íconos de fondo ──────────────── */
+@keyframes bklFloat {
+  0%, 100% { transform: translateY(0px) rotate(var(--r, 0deg)); }
+  50%       { transform: translateY(-22px) rotate(calc(var(--r, 0deg) * -1)); }
+}
+.bkl-float {
+  animation: bklFloat var(--dur, 9s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* ── Flecha de las tarjetas — hover ─────────────────────── */
+.bkl-card:hover .bkl-arrow {
+  transform: translateX(4px);
+  background: #2B2731;
+  color: #fff;
+}
+.bkl-card:hover .bkl-arrow svg {
+  stroke: #fff;
+}
+.bkl-arrow {
+  transition: transform 0.2s ease, background 0.2s ease;
+}
