@@ -50,7 +50,7 @@ export async function printNota({
       '<tr>' +
         `<td class="c">${esc(p.cantidad)}</td>` +
         `<td>${esc(p.descripcion)}</td>` +
-        `<td class="c">${p.precioU ? '$' + esc(p.precioU) : ''}</td>` +
+        `<td class="c">${p.precioU ? fmtMoney(p.precioU) : ''}</td>` +
         `<td class="r">${sub > 0 ? fmtMoney(sub) : '-'}</td>` +
       '</tr>'
     )
@@ -70,7 +70,7 @@ export async function printNota({
   const pagoRows = pagos.map((p, i) =>
     '<tr>' +
       `<td class="c">${i + 1}</td>` +
-      `<td>${p.monto ? '$' + parseFloat(p.monto).toLocaleString('es-MX') : ''}</td>` +
+      `<td>${p.monto ? fmtMoney(p.monto) : ''}</td>` +
       `<td>${fmtDate(p.fecha)}</td>` +
       `<td>${esc(p.met)}</td>` +
     '</tr>'
@@ -84,7 +84,7 @@ export async function printNota({
     return (
       '<tr>' +
         `<td class="c">${i + 1}</td>` +
-        `<td>${p.monto ? '$' + parseFloat(p.monto).toLocaleString('es-MX') : ''}</td>` +
+        `<td>${p.monto ? fmtMoney(p.monto) : ''}</td>` +
         `<td>${fmtDate(p.fecha)}</td>` +
         `<td class="method"><div class="mcell">${opts}</div></td>` +
       '</tr>'
