@@ -1,8 +1,6 @@
 // Genera HTML para imprimir la nota en media hoja A4 (dos mitades en un A4)
 // y abre el diálogo de impresión/PDF del navegador.
 
-const METODOS = ['Transferencia', 'Efectivo', 'Terminal']
-
 function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -75,21 +73,6 @@ export async function printNota({
       `<td>${esc(p.met)}</td>` +
     '</tr>'
   ).join('')
-
-  // ── Filas de pagos (copia con matriz) ─────────────────────
-  const copyRows = pagos.map((p, i) => {
-    const opts = METODOS.map(m =>
-      `<span class="opt${p.met === m ? ' on' : ''}">${m}</span>`
-    ).join('')
-    return (
-      '<tr>' +
-        `<td class="c">${i + 1}</td>` +
-        `<td>${p.monto ? fmtMoney(p.monto) : ''}</td>` +
-        `<td>${fmtDate(p.fecha)}</td>` +
-        `<td class="method"><div class="mcell">${opts}</div></td>` +
-      '</tr>'
-    )
-  }).join('')
 
   // ── Tags de ubicación ───────────────────────────────────────
   const tagBH = ubicSel === 'BELLO HORIZONTE'
@@ -217,23 +200,6 @@ export async function printNota({
   .tots .tk{font-weight:800;letter-spacing:.4px;}
   .tots .tv{text-align:right;font-weight:700;color:#444;}
 
-  /* ── Matriz de método de pago (copia) ── */
-  .method{padding:0!important;}
-  .mcell{display:flex;height:6.5mm;}
-  .opt{
-    flex:1;display:flex;align-items:center;justify-content:center;
-    font-size:7.5pt;font-weight:600;color:#555;
-    border-right:1px solid #c9c9d0;
-  }
-  .opt:last-child{border-right:none;}
-  .opt.on{background:#fbe0ea;color:#d9748f;font-weight:800;}
-
-  /* ── Firmas ── */
-  .firmas{display:flex;gap:8mm;margin-top:auto;padding-top:5mm;}
-  .firma-box{
-    flex:1;border-top:1px solid #c9c9d0;padding-top:2mm;
-    font-size:7.5pt;color:#888;text-align:center;
-  }
 </style>
 </head>
 <body>
@@ -355,56 +321,6 @@ export async function printNota({
       </td>
     </tr>
   </table>
-
-</div>
-
-<!-- ═══════════════ MITAD INFERIOR — COPIA ═══════════════ -->
-<div class="half">
-
-  <!-- Folio copia + marca -->
-  <div class="toprow" style="margin-bottom:1mm;">
-    <div class="folio-bar">
-      <span class="fl">FOLIO</span>
-      <span class="fv">${esc(folio)}</span>
-    </div>
-    <span style="font-size:11pt;font-style:italic;color:#d9748f;font-weight:800;align-self:center;">
-      Bakinglove — copia
-    </span>
-  </div>
-
-  <!-- PAGOS copia con matriz de método -->
-  <div>
-    <div class="barhead">PAGOS</div>
-    <table class="dt">
-      <thead><tr>
-        <th style="width:7%">N°</th>
-        <th style="width:22%">MONTO</th>
-        <th style="width:22%">FECHA</th>
-        <th>METODO DE PAGO</th>
-      </tr></thead>
-      <tbody>${copyRows}</tbody>
-    </table>
-  </div>
-
-  <!-- TOTAL / RESTA (copia) -->
-  <table class="tots">
-    <tr>
-      <td class="tk">TOTAL</td>
-      <td class="tv">${fmtMoney(totalGeneral)}</td>
-    </tr>
-    <tr>
-      <td class="tk">RESTA</td>
-      <td class="tv" style="color:${resta > 0 ? '#d9748f' : '#444'};">
-        ${fmtMoney(Math.abs(resta))}
-      </td>
-    </tr>
-  </table>
-
-  <!-- Líneas de firma -->
-  <div class="firmas">
-    <div class="firma-box">Firma / Nombre del cliente</div>
-    <div class="firma-box">Sello &amp; Firma Bakinglove</div>
-  </div>
 
 </div>
 
