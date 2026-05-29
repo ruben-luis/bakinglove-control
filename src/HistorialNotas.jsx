@@ -214,6 +214,17 @@ export default function HistorialNotas({ notas = [], onBack, onEdit }) {
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', color: '#1a1a22' }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .hist-table-view { display: none !important; }
+          .hist-card-view  { display: block !important; }
+          .hist-stage      { padding: 16px 0 60px !important; }
+          .hist-toolbar    { padding: 0 14px 12px !important; }
+        }
+        @media (min-width: 641px) {
+          .hist-card-view { display: none !important; }
+        }
+      `}</style>
 
       {/* Nav */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${LINE}`, background: BG }}>
@@ -225,19 +236,19 @@ export default function HistorialNotas({ notas = [], onBack, onEdit }) {
       </div>
 
       {/* Stage */}
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '28px 16px 60px' }}>
+      <div className="hist-stage" style={{ display: 'flex', justifyContent: 'center', padding: '28px 16px 60px' }}>
         <div style={{ width: '100%', maxWidth: 860 }}>
 
           {/* Toolbar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="hist-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: -.2, color: HEAD_INK }}>Registro de Notas</h1>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#888' }}>
               {notas.length} nota{notas.length !== 1 ? 's' : ''} guardada{notas.length !== 1 ? 's' : ''}
             </span>
           </div>
 
-          {/* Sheet */}
-          <div style={{ background: '#fff', border: `1px solid ${LINE}`, boxShadow: '0 14px 44px rgba(31,43,94,.14)', overflow: 'hidden' }}>
+          {/* ── VISTA TABLA (desktop) ── */}
+          <div className="hist-table-view" style={{ background: '#fff', border: `1px solid ${LINE}`, boxShadow: '0 14px 44px rgba(31,43,94,.14)', overflow: 'hidden' }}>
             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
               <thead>
                 <tr>
@@ -293,7 +304,6 @@ export default function HistorialNotas({ notas = [], onBack, onEdit }) {
                     ))}
                   </>
                 ))}
-
                 {Array.from({ length: emptyCount }).map((_, i) => (
                   <tr key={`empty-${i}`}>
                     {[...Array(6)].map((__, j) => <td key={j} style={TD()} />)}
@@ -301,6 +311,59 @@ export default function HistorialNotas({ notas = [], onBack, onEdit }) {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* ── VISTA CARDS (móvil) ── */}
+          <div className="hist-card-view" style={{ display: 'none' }}>
+            {notas.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '48px 20px', color: '#aaa', fontWeight: 700, fontSize: 14 }}>
+                Sin notas registradas
+              </div>
+            )}
+            {groups.map(({ day, notas: grupoNotas }) => (
+              <div key={day} style={{ marginBottom: 8 }}>
+                {/* Divisor de fecha */}
+                <div style={{ background: NAVY, color: '#fff', fontWeight: 800, fontSize: 11, letterSpacing: 1, padding: '6px 14px', textTransform: 'uppercase' }}>
+                  {labelFecha(grupoNotas[0].createdAt)}
+                </div>
+                {/* Cards */}
+                {grupoNotas.map((nota, idx) => (
+                  <div key={nota.id} style={{ background: '#fff', borderBottom: `1px solid ${LINE_SOFT}`, padding: '14px 16px', borderLeft: `3px solid ${nota.estado === 'pagado' ? '#3d7a2a' : PINK_TEXT}` }}>
+                    {/* Fila 1: folio + estatus */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ color: LINK, fontWeight: 800, fontSize: 16 }}>{nota.folio}</span>
+                      <StatusBadge estado={nota.estado} />
+                    </div>
+                    {/* Cliente */}
+                    {nota.cliente && (
+                      <div style={{ fontWeight: 700, fontSize: 14, color: HEAD_INK, marginBottom: 8 }}>{nota.cliente}</div>
+                    )}
+                    {/* Fechas */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                      <div style={{ background: BG, borderRadius: 8, padding: '7px 10px' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#aaa', letterSpacing: .5, marginBottom: 2 }}>CREADA</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#444' }}>{fmtCreacion(nota.createdAt)}</div>
+                      </div>
+                      <div style={{ background: BG, borderRadius: 8, padding: '7px 10px' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#aaa', letterSpacing: .5, marginBottom: 2 }}>ENTREGA</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#444' }}>{fmtEntrega(nota.fechaEntrega)}</div>
+                      </div>
+                    </div>
+                    {/* Botones */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setEditando(nota)}
+                        style={{ flex: 1, padding: '9px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Editar pagos
+                      </button>
+                      <button onClick={() => printNota(adaptForPrint(nota))}
+                        style={{ flex: 1, padding: '9px', background: '#fff', color: LINK, border: `1px solid ${LINE}`, borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <FileDown size={14} /> PDF
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
 
         </div>
