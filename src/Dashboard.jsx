@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ReceiptText, TrendingUp, TrendingDown, CalendarDays,
   Plus, Pencil, ArrowRight, Calendar,
@@ -71,7 +72,7 @@ function TopBar() {
 
 function Hero() {
   return (
-    <section className="relative z-10 px-6 pt-6 pb-8 text-center">
+    <section className="relative z-10 px-6 pt-6 pb-6 text-center">
       <img
         src="/bakinglove-logo.png"
         alt="Bakinglove"
@@ -84,6 +85,171 @@ function Hero() {
       <p className="mx-auto mt-2 max-w-xs text-ink/60 text-sm sm:text-base font-medium leading-relaxed">
         Gestiona tus ventas, finanzas y entregas desde un solo lugar.
       </p>
+    </section>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CORTE DE CAJA — helpers
+// ═══════════════════════════════════════════════════════════════
+
+function thisWeekRange() {
+  const now = new Date()
+  const day = now.getDay() // 0=Dom
+  const mon = new Date(now)
+  mon.setDate(now.getDate() - ((day + 6) % 7))
+  mon.setHours(0, 0, 0, 0)
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  sun.setHours(23, 59, 59, 999)
+  return { mon, sun }
+}
+
+function useCountUp(target) {
+  const [val, setVal] = useState(0)
+  const raf = useRef(null)
+  useEffect(() => {
+    cancelAnimationFrame(raf.current)
+    const start = performance.now()
+    const duration = 1100
+    const from = 0
+    const tick = (now) => {
+      const p = Math.min((now - start) / duration, 1)
+      const eased = 1 - (1 - p) ** 4
+      setVal(from + (target - from) * eased)
+      if (p < 1) raf.current = requestAnimationFrame(tick)
+    }
+    raf.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf.current)
+  }, [target])
+  return val
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MONEY RAIN
+// ═══════════════════════════════════════════════════════════════
+
+const PARTICLES = [
+  { id: 0, left: '4%',  delay: 0.00, rot: 15,  sym: '💸', size: 20 },
+  { id: 1, left: '13%', delay: 0.08, rot: -12, sym: '$',  size: 17 },
+  { id: 2, left: '22%', delay: 0.15, rot: 20,  sym: '🪙', size: 16 },
+  { id: 3, left: '31%', delay: 0.04, rot: -18, sym: '💰', size: 18 },
+  { id: 4, left: '41%', delay: 0.11, rot: 10,  sym: '💸', size: 22 },
+  { id: 5, left: '50%', delay: 0.02, rot: -8,  sym: '$',  size: 15 },
+  { id: 6, left: '60%', delay: 0.13, rot: 16,  sym: '🪙', size: 17 },
+  { id: 7, left: '70%', delay: 0.06, rot: -14, sym: '💰', size: 20 },
+  { id: 8, left: '80%', delay: 0.09, rot: 22,  sym: '💸', size: 16 },
+  { id: 9, left: '90%', delay: 0.03, rot: -10, sym: '$',  size: 14 },
+]
+
+function MoneyRain({ rainKey }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', borderRadius: 'inherit', zIndex: 0 }}>
+      <AnimatePresence>
+        {PARTICLES.map(p => (
+          <motion.div
+            key={`${rainKey}-${p.id}`}
+            initial={{ y: -36, opacity: 1, rotate: 0 }}
+            animate={{ y: 140, opacity: [1, 1, 0.6, 0], rotate: p.rot }}
+            transition={{ duration: 1.2, delay: p.delay, ease: 'easeIn' }}
+            style={{ position: 'absolute', top: 0, left: p.left, fontSize: p.size, userSelect: 'none', lineHeight: 1 }}
+          >
+            {p.sym}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STAT BOX inside CorteCard
+// ═══════════════════════════════════════════════════════════════
+
+function StatBox({ label, amount, color, isNeg = false }) {
+  const animated = useCountUp(Math.abs(amount))
+  const fmted = animated.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  return (
+    <div style={{ textAlign: 'center', padding: '14px 6px 12px', position: 'relative', zIndex: 1 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.45)', marginBottom: 6 }}>
+        {label.toUpperCase()}
+      </div>
+      <div style={{
+        fontSize: 'clamp(13px, 4.5vw, 20px)',
+        fontWeight: 900,
+        color,
+        fontVariantNumeric: 'tabular-nums',
+        lineHeight: 1.1,
+        letterSpacing: -0.3,
+      }}>
+        {isNeg && amount < 0 ? '-' : ''}${fmted}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CORTE DE CAJA CARD
+// ═══════════════════════════════════════════════════════════════
+
+function CorteCard({ notas, gastos }) {
+  const [rainKey, setRainKey] = useState(0)
+
+  const { ganaste, gastaste } = useMemo(() => {
+    const { mon, sun } = thisWeekRange()
+
+    const ganaste = notas
+      .filter(n => { const d = new Date(n.createdAt); return d >= mon && d <= sun })
+      .reduce((s, n) => s + (Number(n.totalPagado) || 0), 0)
+
+    const gastaste = gastos
+      .filter(g => {
+        const iso = g.fecha && g.fecha.length === 10 ? g.fecha + 'T12:00:00' : g.createdAt
+        const d = new Date(iso)
+        return d >= mon && d <= sun
+      })
+      .reduce((s, g) => s + (Number(g.monto) || 0), 0)
+
+    return { ganaste, gastaste }
+  }, [notas, gastos])
+
+  const tienes = ganaste - gastaste
+  const positivo = tienes >= 0
+
+  useEffect(() => {
+    setRainKey(k => k + 1)
+  }, [ganaste, gastaste])
+
+  return (
+    <section style={{ position: 'relative', margin: '0 4px 22px', borderRadius: 24, border: '2px solid #2b2731', background: '#1f2b5e', overflow: 'hidden', boxShadow: '5px 5px 0 #2b2731' }}>
+      <MoneyRain rainKey={rainKey} />
+
+      {/* Header */}
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,.12)' }}>
+        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, color: 'rgba(255,255,255,.55)' }}>
+          CORTE DE CAJA
+        </span>
+        <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.3)', marginLeft: 8 }}>
+          Esta semana
+        </span>
+      </div>
+
+      {/* Three stat columns */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr' }}>
+        <StatBox label="Ganaste"  amount={ganaste}        color="#6ee7b7" />
+        <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
+        <StatBox label="Gastaste" amount={gastaste}       color="#fca5a5" />
+        <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
+        <StatBox label="Tienes"   amount={tienes}         color={positivo ? '#fde68a' : '#fca5a5'} isNeg />
+      </div>
+
+      {/* Footer bar */}
+      <div style={{ position: 'relative', zIndex: 1, borderTop: '1px solid rgba(255,255,255,.1)', padding: '7px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: positivo ? 'rgba(110,231,183,.7)' : 'rgba(252,165,165,.7)' }}>
+          {positivo ? '✓ Vas muy bien esta semana' : '⚠ Los gastos superan los ingresos'}
+        </span>
+      </div>
     </section>
   )
 }
@@ -179,16 +345,16 @@ const buildModules = (onNavigate) => [
     ],
     onOpen: () => onNavigate('nota'),
   },
-  { title: 'Concentrado de Ingresos', icon: TrendingUp,   accent: 'mint',  desc: 'Visualiza tus entradas por periodo.',          onOpen: () => onNavigate('concentrado') },
-  { title: 'Concentrado de Gastos',   icon: TrendingDown, accent: 'sky',   desc: 'Controla insumos y costos de operación.',      onOpen: () => onNavigate('gastos') },
-  { title: 'Calendario de Entregas',  icon: CalendarDays, accent: 'lilac', desc: 'Organiza tus pedidos por fecha de entrega.',   onOpen: () => onNavigate('calendario') },
+  { title: 'Concentrado de Ingresos', icon: TrendingUp,   accent: 'mint',  desc: 'Visualiza tus entradas por periodo.',        onOpen: () => onNavigate('concentrado') },
+  { title: 'Concentrado de Gastos',   icon: TrendingDown, accent: 'sky',   desc: 'Controla insumos y costos de operación.',    onOpen: () => onNavigate('gastos') },
+  { title: 'Calendario de Entregas',  icon: CalendarDays, accent: 'lilac', desc: 'Organiza tus pedidos por fecha de entrega.', onOpen: () => onNavigate('calendario') },
 ]
 
 // ═══════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 
-export default function Dashboard({ onNavigate = () => {}, notas = [] }) {
+export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [] }) {
   const modules = buildModules(onNavigate)
 
   return (
@@ -200,6 +366,9 @@ export default function Dashboard({ onNavigate = () => {}, notas = [] }) {
       <div className="relative z-10 mx-auto w-full max-w-2xl px-4 pb-16">
         <TopBar />
         <Hero />
+
+        <CorteCard notas={notas} gastos={gastos} />
+
         <main className="grid grid-cols-1 sm:grid-cols-2 gap-5 px-1">
           {modules.map((m, i) => (
             <ModuleCard key={m.title} data={m} index={i} onOpen={m.onOpen} />

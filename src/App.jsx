@@ -69,5 +69,5 @@ export default function App() {
   if (view === 'calendario') {
     return <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} />
   }
-  return <Dashboard onNavigate={setView} notas={notas} />
+  return <Dashboard onNavigate={setView} notas={notas} gastos={gastos} />
 }
