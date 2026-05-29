@@ -70,7 +70,7 @@ function MethodPicker({ value, onChange }) {
       {METODOS.map((m, i) => {
         const on = value === m
         return (
-          <button key={m} onClick={() => onChange(on ? null : m)}
+          <button key={m} onClick={() => onChange(on ? null : m)} className="nota-method-btn"
             style={{ flex: 1, textAlign: 'center', fontSize: 11.5, fontWeight: on ? 800 : 600, color: on ? PINK_TEXT : '#555', padding: '6px 4px', background: on ? PINK_HI : 'transparent', cursor: 'pointer', border: 'none', borderRight: i < METODOS.length - 1 ? `1px solid ${GRAY_LINE}` : 'none' }}>
             {m}
           </button>
@@ -129,6 +129,17 @@ export default function NotaDeVenta({ onBack, onSave }) {
 
   return (
     <div style={{ background: '#eceaee', minHeight: '100vh', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', color: '#2b2731' }}>
+      <style>{`
+        @media (max-width: 520px) {
+          .nota-paper   { padding: 14px 10px 24px !important; }
+          .nota-title   { font-size: 22px !important; }
+          .nota-logo    { width: 100px !important; }
+          .nota-scroll  { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .nota-totales { width: 100% !important; }
+          .nota-folio-copy { width: 100% !important; }
+          .nota-method-btn { font-size: 10px !important; padding: 6px 2px !important; }
+        }
+      `}</style>
 
       {/* ── Nav ── */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid rgba(0,0,0,.1)', background: '#eceaee', gap: 8 }}>
@@ -149,14 +160,14 @@ export default function NotaDeVenta({ onBack, onSave }) {
 
       {/* ── Paper ── */}
       <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 16px 100px' }}>
-        <div style={{ width: '100%', maxWidth: 640, background: '#fff', padding: '24px 18px 38px', boxShadow: '0 18px 50px rgba(31,43,94,.16)', borderRadius: 6 }}>
+        <div className="nota-paper" style={{ width: '100%', maxWidth: 640, background: '#fff', padding: '24px 18px 38px', boxShadow: '0 18px 50px rgba(31,43,94,.16)', borderRadius: 6 }}>
 
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
-            <h1 style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: 37, lineHeight: 0.98, letterSpacing: -0.5, color: '#111018', textTransform: 'uppercase', margin: '2px 0 0', flexShrink: 0 }}>
+            <h1 className="nota-title" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: 37, lineHeight: 0.98, letterSpacing: -0.5, color: '#111018', textTransform: 'uppercase', margin: '2px 0 0', flexShrink: 0 }}>
               Nota<br />de&nbsp;venta
             </h1>
-            <img src="/bakinglove-logo.png" alt="Bakinglove"
+            <img src="/bakinglove-logo.png" alt="Bakinglove" className="nota-logo"
               style={{ width: 150, height: 'auto', objectFit: 'contain', marginTop: 2 }}
               onError={e => { e.target.style.display = 'none' }} />
           </div>
@@ -186,34 +197,32 @@ export default function NotaDeVenta({ onBack, onSave }) {
           </div>
 
           {/* ── Fields ── */}
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <tbody>
-              <tr>
-                <td style={LAB}>Fecha de Entrega</td>
-                <td colSpan={3} style={{ ...VAL, background: PINK_HI }}>
-                  <FI type="date" value={fecha} onChange={e => setF(e.target.value)} bg={PINK_HI} />
-                </td>
-              </tr>
-              <tr>
-                <td style={LAB}>Cliente</td>
-                <td colSpan={3} style={VAL}>
-                  <FI value={cli} onChange={e => setC(e.target.value)} placeholder="Nombre del cliente" />
-                </td>
-              </tr>
-              <tr>
-                <td style={LAB}>Lugar de Entrega</td>
-                <td style={VAL}><FI value={lugar} onChange={e => setL(e.target.value)} placeholder="Dirección" /></td>
-                <td style={LAB}>Hora de Entrega</td>
-                <td style={VAL}><FI type="time" value={hora} onChange={e => setH(e.target.value)} /></td>
-              </tr>
-              <tr>
-                <td style={LAB}>Costo por entrega</td>
-                <td style={VAL}><FI type="number" value={costo} onChange={e => setK(e.target.value)} placeholder="$0" /></td>
-                <td style={LAB}>Contacto</td>
-                <td style={VAL}><FI value={tel} onChange={e => setT(e.target.value)} placeholder="Teléfono" /></td>
-              </tr>
-            </tbody>
-          </table>
+          <div style={{ border: `1px solid ${GRAY_LINE}`, borderRadius: 2, overflow: 'hidden' }}>
+            {/* Fecha */}
+            <div style={{ display: 'flex', borderBottom: `1px solid ${GRAY_LINE}`, minHeight: 38 }}>
+              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120 }}>Fecha de Entrega</div>
+              <div style={{ flex: 1, background: PINK_HI }}><FI type="date" value={fecha} onChange={e => setF(e.target.value)} bg={PINK_HI} /></div>
+            </div>
+            {/* Cliente */}
+            <div style={{ display: 'flex', borderBottom: `1px solid ${GRAY_LINE}`, minHeight: 38 }}>
+              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120 }}>Cliente</div>
+              <div style={{ flex: 1 }}><FI value={cli} onChange={e => setC(e.target.value)} placeholder="Nombre del cliente" /></div>
+            </div>
+            {/* Lugar + Hora (flex-wrap para que se apile en móvil) */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: `1px solid ${GRAY_LINE}` }}>
+              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Lugar de Entrega</div>
+              <div style={{ flex: '1 1 120px', minHeight: 38, borderRight: `1px solid ${GRAY_LINE}` }}><FI value={lugar} onChange={e => setL(e.target.value)} placeholder="Dirección" /></div>
+              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Hora de Entrega</div>
+              <div style={{ flex: '1 1 80px', minHeight: 38 }}><FI type="time" value={hora} onChange={e => setH(e.target.value)} /></div>
+            </div>
+            {/* Costo + Contacto */}
+            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Costo por entrega</div>
+              <div style={{ flex: '1 1 80px', minHeight: 38, borderRight: `1px solid ${GRAY_LINE}` }}><FI type="number" value={costo} onChange={e => setK(e.target.value)} placeholder="$0" /></div>
+              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Contacto</div>
+              <div style={{ flex: '1 1 80px', minHeight: 38 }}><FI value={tel} onChange={e => setT(e.target.value)} placeholder="Teléfono" /></div>
+            </div>
+          </div>
 
           {/* ── Ubicación ──
               CONSUMO: siempre igual (estático, no afecta selección)
@@ -243,6 +252,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
           {/* ── PEDIDO ── */}
           <div style={{ marginTop: 6 }}>
             <BarHead label="PEDIDO" />
+            <div className="nota-scroll">
             <table style={DT}>
               <thead>
                 <NavyTH cols={[{ label: 'CANTIDAD', width: 80 }, { label: 'DESCRIPCION' }, { label: 'PRECIO U', width: 80 }, { label: 'TOTAL', width: 70 }]} />
@@ -294,11 +304,13 @@ export default function NotaDeVenta({ onBack, onSave }) {
                 </tr>
               </tfoot>
             </table>
+            </div>
           </div>
 
           {/* ── OBSERVACIONES ── */}
           <div style={{ marginTop: 6 }}>
             <BarHead label="OBSERVACIONES" />
+            <div className="nota-scroll">
             <table style={DT}>
               <tbody>
                 {obs.map((o, i) => (
@@ -322,11 +334,13 @@ export default function NotaDeVenta({ onBack, onSave }) {
                 </tr>
               </tfoot>
             </table>
+            </div>
           </div>
 
           {/* ── PAGOS ── */}
           <div style={{ marginTop: 6 }}>
             <BarHead label="PAGOS" />
+            <div className="nota-scroll">
             <table style={DT}>
               <thead>
                 <NavyTH cols={[{ label: 'N°', width: 36 }, { label: 'MONTO' }, { label: 'FECHA' }, { label: 'METODO DE PAGO' }]} />
@@ -350,10 +364,11 @@ export default function NotaDeVenta({ onBack, onSave }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* ── Totales ── */}
-          <table style={{ borderCollapse: 'collapse', marginTop: 14, width: '62%' }}>
+          <table className="nota-totales" style={{ borderCollapse: 'collapse', marginTop: 14, width: '62%' }}>
             <tbody>
               <tr>
                 <td style={{ border: `1px solid ${GRAY_LINE}`, height: 34, padding: '0 12px', fontWeight: 800, letterSpacing: 0.5, width: '40%', fontSize: 14 }}>TOTAL</td>
@@ -370,7 +385,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
           <hr style={{ border: 'none', borderTop: '2px dashed #b9b9c2', margin: '26px 0 18px' }} />
 
           {/* ── Copia: Folio ── */}
-          <div style={{ display: 'flex', alignItems: 'stretch', border: `1px solid ${GRAY_LINE}`, borderRadius: 4, overflow: 'hidden', height: 38, width: '60%', marginBottom: 14, flexShrink: 0 }}>
+          <div className="nota-folio-copy" style={{ display: 'flex', alignItems: 'stretch', border: `1px solid ${GRAY_LINE}`, borderRadius: 4, overflow: 'hidden', height: 38, width: '60%', marginBottom: 14, flexShrink: 0 }}>
             <span style={{ background: GRAY, fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', padding: '0 14px', letterSpacing: 0.5, flexShrink: 0 }}>FOLIO</span>
             <span style={{ display: 'flex', alignItems: 'center', padding: '0 14px', color: BLUE, fontWeight: 800, fontSize: 20, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{folio}</span>
           </div>
@@ -378,6 +393,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
           {/* ── Copia: PAGOS ── */}
           <div>
             <BarHead label="PAGOS" />
+            <div className="nota-scroll">
             <table style={DT}>
               <thead>
                 <NavyTH cols={[{ label: 'N°', width: 36 }, { label: 'MONTO' }, { label: 'FECHA' }, { label: 'METODO DE PAGO' }]} />
@@ -399,6 +415,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
         </div>
