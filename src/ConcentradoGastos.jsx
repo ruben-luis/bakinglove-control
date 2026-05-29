@@ -25,7 +25,6 @@ function emptyGasto() {
   return {
     id:        `g_${Date.now()}_${Math.random()}`,
     fecha:     todayISO(),
-    gasto:     '',
     concepto:  '',
     monto:     '',
     formaPago: null,
@@ -122,6 +121,7 @@ function SaldoRow({ label, value, last = false }) {
 export default function ConcentradoGastos({ gastos, onSave, onBack }) {
   const now = new Date()
   const [refDate, setRefDate] = useState(now)
+  const [saved,   setSaved]   = useState(false)
 
   const week = getWeekRange(refDate)
 
@@ -166,12 +166,14 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
   const deleteRow = (i) => setRows(prev => prev.filter((_, idx) => idx !== i))
 
   const guardar = () => {
-    const filled = rows.filter(r => r.gasto || r.concepto || r.monto)
-    const otrosMeses = gastos.filter(g => {
+    const filled = rows.filter(r => r.concepto || r.monto)
+    const otrosMeses = (gastos || []).filter(g => {
       const d = new Date(g.createdAt)
       return !(d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear())
     })
     onSave([...otrosMeses, ...filled])
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
   }
 
   // Acumulados
@@ -204,8 +206,8 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
           </button>
           <span className="font-display font-bold text-ink text-base">Concentrado de Gastos</span>
         </div>
-        <button onClick={guardar} className="flex items-center gap-1.5 bg-[#1f2b5e] text-white rounded-lg px-3 py-1.5 text-xs font-bold">
-          Guardar
+        <button onClick={guardar} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${saved ? 'bg-green-600 text-white' : 'bg-[#1f2b5e] text-white'}`}>
+          {saved ? '✓ Guardado' : 'Guardar'}
         </button>
       </div>
 
@@ -233,13 +235,12 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="CONTROL DE GASTOS" />
           <div className="overflow-x-auto">
-            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 560 }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 460 }}>
               <thead>
                 <tr>
                   <th style={{ ...thBase, width: 36, textAlign: 'center' }}>#</th>
                   <th style={{ ...thBase, width: 88 }}>Fecha</th>
-                  <th style={{ ...thBase, width: 110 }}>Gasto</th>
-                  <th style={{ ...thBase }}>Concepto</th>
+                  <th style={{ ...thBase }}>Descripción del gasto</th>
                   <th style={{ ...thBase, width: 80 }}>Monto $</th>
                   <th style={{ ...thBase, width: 100 }}>Forma de pago</th>
                   <th style={{ ...thBase, width: 90 }}>Categoría</th>
@@ -259,7 +260,7 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
                       const dateObj = new Date(day + 'T12:00:00')
                       items.push(
                         <tr key={`div-${i}`}>
-                          <td colSpan={8} style={{ background: '#f0f0f5', padding: '4px 10px', fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1, textTransform: 'uppercase', borderTop: '1px solid #e0e0e8', borderBottom: '1px solid #e0e0e8' }}>
+                          <td colSpan={7} style={{ background: '#f0f0f5', padding: '4px 10px', fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1, textTransform: 'uppercase', borderTop: '1px solid #e0e0e8', borderBottom: '1px solid #e0e0e8' }}>
                             {labelDia(day + 'T12:00:00')}
                           </td>
                         </tr>
@@ -282,14 +283,9 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
                         style={{ width: '100%', height: 32, padding: '0 4px', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 10, color: '#1a1a22' }} />
                     </td>
 
-                    {/* Gasto — fondo rosa */}
-                    <td style={{ ...tdBase, background: '#fde8e0' }} data-colored="1">
-                      <Cell value={row.gasto} onChange={v => updRow(i, 'gasto', v)} placeholder="Categoría…" style={{ background: 'transparent' }} />
-                    </td>
-
-                    {/* Concepto */}
+                    {/* Descripción del gasto */}
                     <td style={tdBase}>
-                      <Cell value={row.concepto} onChange={v => updRow(i, 'concepto', v)} placeholder="Descripción…" />
+                      <Cell value={row.concepto} onChange={v => updRow(i, 'concepto', v)} placeholder="Descripción del gasto…" />
                     </td>
 
                     {/* Monto */}
