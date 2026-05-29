@@ -190,17 +190,38 @@ function EditModal({ nota, onClose, onSave }) {
 
 // ═══════════════════════════════════════════════════════════════
 export default function HistorialNotas({ notas = [], onBack, onEdit }) {
-  const [editando, setEditando] = useState(null)
+  const [editando,    setEditando]    = useState(null)
+  const [filterDate,  setFilterDate]  = useState(todayISO)
+
+  const prevDay = () => {
+    const d = new Date(filterDate + 'T12:00:00')
+    d.setDate(d.getDate() - 1)
+    setFilterDate(d.toISOString().split('T')[0])
+  }
+  const nextDay = () => {
+    const d = new Date(filterDate + 'T12:00:00')
+    d.setDate(d.getDate() + 1)
+    setFilterDate(d.toISOString().split('T')[0])
+  }
+  const isToday = filterDate === todayISO()
+
+  const labelDiaFiltro = (iso) => {
+    if (iso === todayISO()) return 'Hoy'
+    const d = new Date(iso + 'T12:00:00')
+    return `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]} ${d.getFullYear()}`
+  }
+
+  const filteredNotas = notas.filter(n => creacionDay(n) === filterDate)
 
   const groups = []
   const seen = new Map()
-  notas.forEach(nota => {
+  filteredNotas.forEach(nota => {
     const day = creacionDay(nota)
     if (!seen.has(day)) { seen.set(day, []); groups.push({ day, notas: seen.get(day) }) }
     seen.get(day).push(nota)
   })
 
-  const emptyCount = Math.max(0, MIN_ROWS - notas.length)
+  const emptyCount = Math.max(0, MIN_ROWS - filteredNotas.length)
 
   const TH = (extra = {}) => ({
     background: '#fff', color: HEAD_INK, fontWeight: 800, fontSize: 12,
@@ -240,11 +261,38 @@ export default function HistorialNotas({ notas = [], onBack, onEdit }) {
         <div style={{ width: '100%', maxWidth: 860 }}>
 
           {/* Toolbar */}
-          <div className="hist-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: -.2, color: HEAD_INK }}>Registro de Notas</h1>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#888' }}>
-              {notas.length} nota{notas.length !== 1 ? 's' : ''} guardada{notas.length !== 1 ? 's' : ''}
-            </span>
+          <div className="hist-toolbar" style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: -.2, color: HEAD_INK }}>Registro de Notas</h1>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#888' }}>
+                {filteredNotas.length} nota{filteredNotas.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Selector de fecha */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 8, padding: '5px 8px', boxShadow: '0 2px 8px rgba(31,43,94,.07)' }}>
+              <button onClick={prevDay} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, border: `1px solid ${LINE_SOFT}`, borderRadius: 6, background: BTN, cursor: 'pointer' }}>
+                <span style={{ fontSize: 12, color: '#555', fontWeight: 700 }}>◀</span>
+              </button>
+
+              <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', position: 'relative' }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: isToday ? NAVY : HEAD_INK, flex: 1, textAlign: 'center', letterSpacing: -.1 }}>
+                  {labelDiaFiltro(filterDate)}
+                </span>
+                <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+                  style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', top: 0, left: 0, cursor: 'pointer' }} />
+              </label>
+
+              <button onClick={nextDay} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, border: `1px solid ${LINE_SOFT}`, borderRadius: 6, background: BTN, cursor: 'pointer' }}>
+                <span style={{ fontSize: 12, color: '#555', fontWeight: 700 }}>▶</span>
+              </button>
+
+              {!isToday && (
+                <button onClick={() => setFilterDate(todayISO())} style={{ padding: '4px 10px', border: `1px solid ${NAVY}`, borderRadius: 6, background: NAVY, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  Hoy
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ── VISTA TABLA (desktop) ── */}
@@ -304,6 +352,13 @@ export default function HistorialNotas({ notas = [], onBack, onEdit }) {
                     ))}
                   </>
                 ))}
+                {filteredNotas.length === 0 && (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#aaa', fontWeight: 700, fontSize: 14, border: `1px solid ${LINE_SOFT}` }}>
+                      {isToday ? 'Sin notas hoy' : 'Sin notas para este día'}
+                    </td>
+                  </tr>
+                )}
                 {Array.from({ length: emptyCount }).map((_, i) => (
                   <tr key={`empty-${i}`}>
                     {[...Array(6)].map((__, j) => <td key={j} style={TD()} />)}
@@ -315,9 +370,9 @@ export default function HistorialNotas({ notas = [], onBack, onEdit }) {
 
           {/* ── VISTA CARDS (móvil) ── */}
           <div className="hist-card-view" style={{ display: 'none' }}>
-            {notas.length === 0 && (
+            {filteredNotas.length === 0 && (
               <div style={{ textAlign: 'center', padding: '48px 20px', color: '#aaa', fontWeight: 700, fontSize: 14 }}>
-                Sin notas registradas
+                {isToday ? 'Sin notas hoy' : 'Sin notas para este día'}
               </div>
             )}
             {groups.map(({ day, notas: grupoNotas }) => (
