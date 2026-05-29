@@ -61,15 +61,29 @@ function labelDia(isoStr) {
   return `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]}`
 }
 
+const todayISO = () => new Date().toISOString().split('T')[0]
+
 export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
   const now  = new Date()
-  const [refDate, setRefDate] = useState(now)
+  const [refDate,    setRefDate]    = useState(now)
+  const [filterDate, setFilterDate] = useState(todayISO)
   const week = getWeekRange(refDate)
+
+  const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(d.toISOString().split('T')[0]) }
+  const nextDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 1); setFilterDate(d.toISOString().split('T')[0]) }
+  const isDiaHoy = filterDate === todayISO()
+  const labelDiaFiltro = (iso) => {
+    if (iso === todayISO()) return 'Hoy'
+    const d = new Date(iso + 'T12:00:00')
+    return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]} ${d.getFullYear()}`
+  }
 
   const notasMes = notas.filter(n => {
     const d = new Date(n.createdAt)
     return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
   })
+
+  const notasDia = notasMes.filter(n => n.createdAt.split('T')[0] === filterDate)
 
   const gastosMes = gastos.filter(g => {
     const d = new Date(g.createdAt)
@@ -113,10 +127,9 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
   const prevWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d) }
   const nextWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d) }
 
-  const MIN_ROWS = 16
   const rawRows = []
   let rowIdx = 1
-  notasMes.forEach(n => {
+  notasDia.forEach(n => {
     const prodActivos = n.productos.filter(p => p.descripcion)
     if (prodActivos.length === 0) {
       rawRows.push({ idx: rowIdx++, nota: n, producto: null, pago: n.pagos[0] })
@@ -126,25 +139,8 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
       })
     }
   })
-  while (rawRows.length < MIN_ROWS) {
-    rawRows.push({ idx: rowIdx++, nota: null, producto: null, pago: null })
-  }
 
-  // Insertar divisores de fecha entre días distintos
-  const rows = []
-  let lastDay = null
-  rawRows.forEach(row => {
-    if (row.nota) {
-      const day = row.nota.createdAt.split('T')[0]
-      if (day !== lastDay) {
-        lastDay = day
-        rows.push({ type: 'divider', label: labelDia(row.nota.createdAt) })
-      }
-      rows.push({ type: 'row', ...row })
-    } else {
-      rows.push({ type: 'row', ...row })
-    }
-  })
+  const rows = rawRows.map(row => ({ type: 'row', ...row }))
 
   const folioPH = `BL${String(refDate.getFullYear()).slice(2)}${String(refDate.getMonth()+1).padStart(2,'0')}`
 
@@ -220,6 +216,26 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
           </p>
         )}
 
+        {/* Navegación por día */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '2px 0' }}>
+          <button onClick={prevDay} style={{ border: '2px solid #1a1a22', borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', background: '#fff', cursor: 'pointer' }}>
+            <ChevronLeft size={14} strokeWidth={2.5} />
+          </button>
+          <label style={{ position: 'relative', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#1a1a22', padding: '4px 14px', border: '2px solid #1a1a22', borderRadius: 20, background: '#fff', display: 'inline-block', userSelect: 'none' }}>
+            {labelDiaFiltro(filterDate)}
+            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+              style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
+          </label>
+          <button onClick={nextDay} style={{ border: '2px solid #1a1a22', borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', background: '#fff', cursor: 'pointer' }}>
+            <ChevronRight size={14} strokeWidth={2.5} />
+          </button>
+          {!isDiaHoy && (
+            <button onClick={() => setFilterDate(todayISO())} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', border: '2px solid #1f2b5e', borderRadius: 14, background: '#1f2b5e', color: '#fff', cursor: 'pointer' }}>
+              Hoy
+            </button>
+          )}
+        </div>
+
         {/* Control de ingresos */}
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="CONTROL DE INGRESOS" />
@@ -235,18 +251,16 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
                 </tr>
               </thead>
               <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ textAlign: 'center', color: '#bbb', fontSize: 11, padding: 20 }}>
+                      Sin ingresos para este día
+                    </td>
+                  </tr>
+                ) : null}
                 {(() => {
                   const seenNotas = new Set()
                   return rows.map((item, i) => {
-                    if (item.type === 'divider') {
-                      return (
-                        <tr key={`div-${i}`}>
-                          <td colSpan={9} style={{ background: '#f0f0f5', padding: '4px 10px', fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1, textTransform: 'uppercase', borderTop: '1px solid #e0e0e8', borderBottom: '1px solid #e0e0e8' }}>
-                            {item.label}
-                          </td>
-                        </tr>
-                      )
-                    }
                     const { idx, nota, producto, pago } = item
                     const isFirst = nota && !seenNotas.has(nota.id)
                     if (nota) seenNotas.add(nota.id)

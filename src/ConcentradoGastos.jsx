@@ -21,10 +21,10 @@ function fmt(n) {
   return v !== 0 ? `$${v.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : '$ -'
 }
 
-function emptyGasto() {
+function emptyGasto(fecha) {
   return {
     id:        `g_${Date.now()}_${Math.random()}`,
-    fecha:     todayISO(),
+    fecha:     fecha || todayISO(),
     concepto:  '',
     monto:     '',
     formaPago: null,
@@ -44,12 +44,13 @@ function getWeekRange(date) {
 }
 
 // ── Celda input inline ────────────────────────────────────────
-function Cell({ value, onChange, type = 'text', placeholder = '', style = {} }) {
+function Cell({ value, onChange, onBlur, type = 'text', placeholder = '', style = {} }) {
   return (
     <input
       type={type}
       value={value}
       onChange={e => onChange(e.target.value)}
+      onBlur={onBlur}
       placeholder={placeholder}
       style={{
         width: '100%', height: '100%', minHeight: 32,
@@ -120,38 +121,47 @@ function SaldoRow({ label, value, last = false }) {
 // ═══════════════════════════════════════════════════════════════
 export default function ConcentradoGastos({ gastos, onSave, onBack }) {
   const now = new Date()
-  const [refDate, setRefDate] = useState(now)
-  const [saved,   setSaved]   = useState(false)
+  const [refDate,    setRefDate]    = useState(now)
+  const [saved,      setSaved]      = useState(false)
+  const [filterDate, setFilterDate] = useState(todayISO)
 
   const week = getWeekRange(refDate)
 
   const prevWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d) }
   const nextWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d) }
 
+  const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(d.toISOString().split('T')[0]) }
+  const nextDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 1); setFilterDate(d.toISOString().split('T')[0]) }
+  const isDiaHoy = filterDate === todayISO()
+  const labelDiaFiltro = (iso) => {
+    if (iso === todayISO()) return 'Hoy'
+    const d = new Date(iso + 'T12:00:00')
+    return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]} ${d.getFullYear()}`
+  }
+
   // Gastos del mes visible
   const gastosMes = useMemo(() =>
-    gastos.filter(g => {
+    (gastos || []).filter(g => {
       const d = new Date(g.createdAt)
       return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
     }),
   [gastos, refDate])
 
-  // Filas locales editables (solo del mes)
-  const [rows, setRows] = useState(() => {
-    const base = gastosMes.length > 0 ? [...gastosMes] : []
-    while (base.length < 16) base.push(emptyGasto())
-    return base
-  })
+  // Filas locales editables (solo del mes, sin padding vacío)
+  const [rows, setRows] = useState(() => gastosMes.length > 0 ? [...gastosMes] : [])
 
   // Cuando cambia el mes, recarga las filas
   const mesKey = `${refDate.getFullYear()}-${refDate.getMonth()}`
   const [lastMesKey, setLastMesKey] = useState(mesKey)
   if (mesKey !== lastMesKey) {
     setLastMesKey(mesKey)
-    const base = gastosMes.length > 0 ? [...gastosMes] : []
-    while (base.length < 16) base.push(emptyGasto())
-    setRows(base)
+    setRows(gastosMes.length > 0 ? [...gastosMes] : [])
   }
+
+  // Filas visibles para el día seleccionado (con índice original para edición)
+  const displayRows = rows
+    .map((r, i) => ({ ...r, _idx: i }))
+    .filter(r => r.fecha === filterDate)
 
   const updRow = (i, field, val) => {
     setRows(prev => {
@@ -161,7 +171,7 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
     })
   }
 
-  const addRow = () => setRows(prev => [...prev, emptyGasto()])
+  const addRow = () => setRows(prev => [...prev, emptyGasto(filterDate)])
 
   const deleteRow = (i) => setRows(prev => prev.filter((_, idx) => idx !== i))
 
@@ -231,6 +241,26 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
           </div>
         </div>
 
+        {/* Navegación por día */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '2px 0' }}>
+          <button onClick={prevDay} style={{ border: '2px solid #1a1a22', borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', background: '#fff', cursor: 'pointer' }}>
+            <ChevronLeft size={14} strokeWidth={2.5} />
+          </button>
+          <label style={{ position: 'relative', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#1a1a22', padding: '4px 14px', border: '2px solid #1a1a22', borderRadius: 20, background: '#fff', display: 'inline-block', userSelect: 'none' }}>
+            {labelDiaFiltro(filterDate)}
+            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+              style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
+          </label>
+          <button onClick={nextDay} style={{ border: '2px solid #1a1a22', borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', background: '#fff', cursor: 'pointer' }}>
+            <ChevronRight size={14} strokeWidth={2.5} />
+          </button>
+          {!isDiaHoy && (
+            <button onClick={() => setFilterDate(todayISO())} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', border: '2px solid #1f2b5e', borderRadius: 14, background: '#1f2b5e', color: '#fff', cursor: 'pointer' }}>
+              Hoy
+            </button>
+          )}
+        </div>
+
         {/* CONTROL DE GASTOS */}
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="CONTROL DE GASTOS" />
@@ -248,64 +278,38 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  let lastDay = null
-                  return rows.flatMap((row, i) => {
-                    const day = row.fecha || ''
-                    const items = []
-                    const isFilled = row.gasto || row.concepto || row.monto
-                    if (isFilled && day && day !== lastDay) {
-                      lastDay = day
-                      const [y, m, d] = day.split('-')
-                      const dateObj = new Date(day + 'T12:00:00')
-                      items.push(
-                        <tr key={`div-${i}`}>
-                          <td colSpan={7} style={{ background: '#f0f0f5', padding: '4px 10px', fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1, textTransform: 'uppercase', borderTop: '1px solid #e0e0e8', borderBottom: '1px solid #e0e0e8' }}>
-                            {labelDia(day + 'T12:00:00')}
-                          </td>
-                        </tr>
-                      )
-                    }
-                    items.push(
+                {displayRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', color: '#bbb', fontSize: 11, padding: 20 }}>
+                      Sin gastos para este día
+                    </td>
+                  </tr>
+                ) : displayRows.map((row, visIdx) => (
                   <tr key={row.id}
                     style={{ background: '#fff' }}
                     onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => { if (!c.dataset.colored) c.style.background = '#fafaff' })}
                     onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => { if (!c.dataset.colored) c.style.background = '' })}
                   >
-                    {/* # */}
-                    <td style={{ ...tdBase, textAlign: 'center', fontSize: 10, color: '#aaa', fontWeight: 600 }}>
-                      {i + 1}
-                    </td>
-
-                    {/* Fecha */}
+                    <td style={{ ...tdBase, textAlign: 'center', fontSize: 10, color: '#aaa', fontWeight: 600 }}>{visIdx + 1}</td>
                     <td style={tdBase}>
-                      <input type="date" value={row.fecha} onChange={e => updRow(i, 'fecha', e.target.value)}
+                      <input type="date" value={row.fecha} onChange={e => updRow(row._idx, 'fecha', e.target.value)}
                         style={{ width: '100%', height: 32, padding: '0 4px', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 10, color: '#1a1a22' }} />
                     </td>
-
-                    {/* Descripción del gasto */}
                     <td style={tdBase}>
-                      <Cell value={row.concepto} onChange={v => updRow(i, 'concepto', v)} placeholder="Descripción del gasto…" />
+                      <Cell value={row.concepto} onChange={v => updRow(row._idx, 'concepto', v)} placeholder="Descripción del gasto…" />
                     </td>
-
-                    {/* Monto */}
                     <td style={tdBase}>
-                      <Cell type="number" value={row.monto} onChange={v => updRow(i, 'monto', v)} placeholder="0" style={{ textAlign: 'right' }} />
+                      <Cell type="text" value={row.monto} onChange={v => updRow(row._idx, 'monto', v)} placeholder="0.00" style={{ textAlign: 'right' }}
+                        onBlur={e => { const n = parseFloat(e.target.value); if (!isNaN(n) && n > 0) updRow(row._idx, 'monto', n.toFixed(2)) }} />
                     </td>
-
-                    {/* Forma de pago — fondo amarillo */}
                     <td style={{ ...tdBase, background: '#fef9c3' }} data-colored="1">
-                      <FormaPagoPicker value={row.formaPago} onChange={v => updRow(i, 'formaPago', v)} />
+                      <FormaPagoPicker value={row.formaPago} onChange={v => updRow(row._idx, 'formaPago', v)} />
                     </td>
-
-                    {/* Categoría */}
                     <td style={tdBase}>
-                      <CategoriaPicker value={row.categoria} onChange={v => updRow(i, 'categoria', v)} />
+                      <CategoriaPicker value={row.categoria} onChange={v => updRow(row._idx, 'categoria', v)} />
                     </td>
-
-                    {/* Eliminar */}
                     <td style={{ ...tdBase, textAlign: 'center' }}>
-                      <button onClick={() => deleteRow(i)}
+                      <button onClick={() => deleteRow(row._idx)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', padding: 4, display: 'grid', placeItems: 'center' }}
                         onMouseEnter={e => e.currentTarget.style.color = '#e57373'}
                         onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
@@ -313,10 +317,7 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
                       </button>
                     </td>
                   </tr>
-                    )
-                    return items
-                  })
-                })()}
+                ))}
               </tbody>
             </table>
           </div>
