@@ -20,7 +20,7 @@ const peekNextFolio = () => {
 }
 
 const todayISO  = () => new Date().toISOString().split('T')[0]
-const dash      = (n) => (n > 0 ? `$${n.toLocaleString('es-MX')}` : '-')
+const dash      = (n) => (n > 0 ? `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-')
 const fmtMoney  = (n) => n > 0 ? `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : '-'
 const fmtDate   = (iso) => iso ? iso.split('-').reverse().join('/') : ''
 
@@ -138,6 +138,12 @@ export default function NotaDeVenta({ onBack, onSave }) {
           .nota-totales { width: 100% !important; }
           .nota-folio-copy { width: 100% !important; }
           .nota-method-btn { font-size: 10px !important; padding: 6px 2px !important; }
+          .nota-field-label {
+            width: 140px !important;
+            min-width: 140px !important;
+            font-size: 12px !important;
+            box-sizing: border-box;
+          }
         }
       `}</style>
 
@@ -200,26 +206,26 @@ export default function NotaDeVenta({ onBack, onSave }) {
           <div style={{ border: `1px solid ${GRAY_LINE}`, borderRadius: 2, overflow: 'hidden' }}>
             {/* Fecha */}
             <div style={{ display: 'flex', borderBottom: `1px solid ${GRAY_LINE}`, minHeight: 38 }}>
-              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120 }}>Fecha de Entrega</div>
+              <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120 }}>Fecha de Entrega</div>
               <div style={{ flex: 1, background: PINK_HI }}><FI type="date" value={fecha} onChange={e => setF(e.target.value)} bg={PINK_HI} /></div>
             </div>
             {/* Cliente */}
             <div style={{ display: 'flex', borderBottom: `1px solid ${GRAY_LINE}`, minHeight: 38 }}>
-              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120 }}>Cliente</div>
+              <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120 }}>Cliente</div>
               <div style={{ flex: 1 }}><FI value={cli} onChange={e => setC(e.target.value)} placeholder="Nombre del cliente" /></div>
             </div>
             {/* Lugar + Hora (flex-wrap para que se apile en móvil) */}
             <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: `1px solid ${GRAY_LINE}` }}>
-              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Lugar de Entrega</div>
+              <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Lugar de Entrega</div>
               <div style={{ flex: '1 1 120px', minHeight: 38, borderRight: `1px solid ${GRAY_LINE}` }}><FI value={lugar} onChange={e => setL(e.target.value)} placeholder="Dirección" /></div>
-              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Hora de Entrega</div>
+              <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Hora de Entrega</div>
               <div style={{ flex: '1 1 80px', minHeight: 38 }}><FI type="time" value={hora} onChange={e => setH(e.target.value)} /></div>
             </div>
             {/* Costo + Contacto */}
             <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Costo por entrega</div>
+              <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Costo por entrega</div>
               <div style={{ flex: '1 1 80px', minHeight: 38, borderRight: `1px solid ${GRAY_LINE}` }}><FI type="number" value={costo} onChange={e => setK(e.target.value)} placeholder="$0" /></div>
-              <div style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Contacto</div>
+              <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Contacto</div>
               <div style={{ flex: '1 1 80px', minHeight: 38 }}><FI value={tel} onChange={e => setT(e.target.value)} placeholder="Teléfono" /></div>
             </div>
           </div>
@@ -403,7 +409,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
                   <tr key={i}>
                     <td style={TD({ width: 36, textAlign: 'center', fontWeight: 700, fontSize: 15 })}>{i + 1}</td>
                     <td style={TD({ color: '#444', fontWeight: 700 })}>
-                      {p.monto ? `$${parseFloat(p.monto).toLocaleString('es-MX')}` : ''}
+                      {p.monto ? dash(parseFloat(p.monto)) : ''}
                     </td>
                     <td style={TD({ color: '#444', fontSize: 12, whiteSpace: 'nowrap' })}>
                       {p.fecha ? p.fecha.slice(5).replace('-', '/') : ''}
