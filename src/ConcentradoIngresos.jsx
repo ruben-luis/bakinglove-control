@@ -127,20 +127,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
   const prevWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d) }
   const nextWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d) }
 
-  const rawRows = []
-  let rowIdx = 1
-  notasDia.forEach(n => {
-    const prodActivos = n.productos.filter(p => p.descripcion)
-    if (prodActivos.length === 0) {
-      rawRows.push({ idx: rowIdx++, nota: n, producto: null, pago: n.pagos[0] })
-    } else {
-      prodActivos.forEach((p, pi) => {
-        rawRows.push({ idx: rowIdx++, nota: n, producto: p, pago: n.pagos[pi] || null })
-      })
-    }
-  })
-
-  const rows = rawRows.map(row => ({ type: 'row', ...row }))
+  const rows = notasDia.map((n, i) => ({ idx: i + 1, nota: n }))
 
   const folioPH = `BL${String(refDate.getFullYear()).slice(2)}${String(refDate.getMonth()+1).padStart(2,'0')}`
 
@@ -257,89 +244,77 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
                       Sin ingresos para este día
                     </td>
                   </tr>
-                ) : null}
-                {(() => {
-                  const seenNotas = new Set()
-                  return rows.map((item, i) => {
-                    const { idx, nota, producto, pago } = item
-                    const isFirst = nota && !seenNotas.has(nota.id)
-                    if (nota) seenNotas.add(nota.id)
+                ) : rows.map(({ idx, nota }) => {
+                  const totalPedido = nota.totalPedido || 0
+                  const totalPagado = nota.totalPagado || 0
+                  const resta       = nota.resta ?? (totalPedido - totalPagado)
+                  const liquidado   = resta <= 0
 
-                    const totalPedido = nota?.totalPedido || 0
-                    const totalPagado = nota?.totalPagado || 0
-                    const resta       = nota?.resta ?? (totalPedido - totalPagado)
-                    const liquidado   = resta <= 0
+                  const prods = (nota.productos || []).filter(p => p.descripcion)
+                  const prodStr = prods.length === 0
+                    ? '—'
+                    : prods.map(p => `${p.cantidad ? p.cantidad + '× ' : ''}${p.descripcion}`).join(' · ')
 
-                    return (
-                      <tr key={i} className="border-t border-ink/10 hover:bg-cream/60 transition-colors">
-                        <td className="px-2 py-2.5 text-ink/50 border-r border-ink/10 font-semibold w-7">{idx}</td>
+                  const pagosValidos = (nota.pagos || []).filter(p => p.metodoPago && p.monto)
+                  const pagoColors = {
+                    Transferencia: 'bg-sky-soft/60 text-sky-700',
+                    Efectivo:      'bg-mint-soft/60 text-green-700',
+                    Terminal:      'bg-lilac-soft/60 text-purple-700',
+                  }
 
-                        {/* Fecha de creación */}
-                        <td className="px-2 py-2.5 text-ink border-r border-ink/10 whitespace-nowrap">
-                          {nota ? new Date(nota.createdAt).toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit' }) : ''}
-                        </td>
+                  return (
+                    <tr key={nota.id} className="border-t border-ink/10 hover:bg-cream/60 transition-colors">
+                      <td className="px-2 py-2.5 text-ink/50 border-r border-ink/10 font-semibold w-7">{idx}</td>
 
-                        <td className="px-2 py-2.5 text-ink border-r border-ink/10 font-semibold">
-                          {nota ? nota.folio : <span className="text-ink/25">{folioPH}</span>}
-                        </td>
-                        <td className="px-2 py-2.5 text-ink border-r border-ink/10">
-                          {producto?.descripcion || ''}
-                        </td>
+                      <td className="px-2 py-2.5 text-ink border-r border-ink/10 whitespace-nowrap">
+                        {new Date(nota.createdAt).toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit' })}
+                      </td>
 
-                        {/* Monto Total — fijo, solo en primera fila de la nota */}
-                        <td className="px-2 py-2.5 border-r border-ink/10 font-bold text-ink">
-                          {isFirst && totalPedido > 0 ? fmtShort(totalPedido) : ''}
-                        </td>
+                      <td className="px-2 py-2.5 text-ink border-r border-ink/10 font-semibold whitespace-nowrap">
+                        {nota.folio}
+                      </td>
 
-                        {/* Anticipo / Pagado acumulado */}
-                        <td className="px-2 py-2.5 border-r border-ink/10 font-bold" style={{ color: '#3d7a2a' }}>
-                          {isFirst && totalPagado > 0 ? fmtShort(totalPagado) : ''}
-                        </td>
+                      {/* Todos los productos en un solo renglón */}
+                      <td className="px-2 py-2.5 text-ink border-r border-ink/10" style={{ maxWidth: 180 }}>
+                        <span className="line-clamp-2 leading-tight">{prodStr}</span>
+                      </td>
 
-                        {/* Restante */}
-                        <td className="px-2 py-2.5 border-r border-ink/10 font-bold whitespace-nowrap">
-                          {isFirst && nota ? (
-                            liquidado
-                              ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-mint-soft/60 text-green-700 border border-green-200">Pagado</span>
-                              : <span style={{ color: '#c04070' }}>{fmtShort(resta)}</span>
-                          ) : ''}
-                        </td>
+                      <td className="px-2 py-2.5 border-r border-ink/10 font-bold text-ink whitespace-nowrap">
+                        {totalPedido > 0 ? fmtShort(totalPedido) : ''}
+                      </td>
 
-                        {/* Forma de pago — todos los métodos de la nota */}
-                        <td className="px-2 py-1.5 border-r border-ink/10">
-                          {isFirst && nota ? (
-                            <div className="flex flex-col gap-0.5">
-                              {(nota.pagos || []).filter(p => p.metodoPago && p.monto).map((p, pi) => {
-                                const colors = {
-                                  Transferencia: 'bg-sky-soft/60 text-sky-700',
-                                  Efectivo:      'bg-mint-soft/60 text-green-700',
-                                  Terminal:      'bg-lilac-soft/60 text-purple-700',
-                                }
-                                return (
-                                  <span key={pi} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${colors[p.metodoPago] || 'bg-amber-50 text-amber-700'}`}>
-                                    {p.metodoPago} · {fmtShort(parseFloat(p.monto) || 0)}
-                                  </span>
-                                )
-                              })}
-                            </div>
-                          ) : ''}
-                        </td>
+                      <td className="px-2 py-2.5 border-r border-ink/10 font-bold whitespace-nowrap" style={{ color: '#3d7a2a' }}>
+                        {totalPagado > 0 ? fmtShort(totalPagado) : ''}
+                      </td>
 
-                        {/* PDF */}
-                        <td className="px-1.5 py-1.5 text-center">
-                          {isFirst && (
-                            <button
-                              onClick={() => handlePrintNota(nota)}
-                              className="flex items-center gap-1 bg-[#1f2b5e] text-white rounded px-1.5 py-1 text-[9px] font-bold"
-                            >
-                              <FileDown size={10} /> PDF
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })
-                })()}
+                      <td className="px-2 py-2.5 border-r border-ink/10 font-bold whitespace-nowrap">
+                        {liquidado
+                          ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-mint-soft/60 text-green-700 border border-green-200">Pagado</span>
+                          : <span style={{ color: '#c04070' }}>{fmtShort(resta)}</span>
+                        }
+                      </td>
+
+                      <td className="px-2 py-1.5 border-r border-ink/10">
+                        <div className="flex flex-col gap-0.5">
+                          {pagosValidos.map((p, pi) => (
+                            <span key={pi} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${pagoColors[p.metodoPago] || 'bg-amber-50 text-amber-700'}`}>
+                              {p.metodoPago} · {fmtShort(parseFloat(p.monto) || 0)}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+
+                      <td className="px-1.5 py-1.5 text-center">
+                        <button
+                          onClick={() => handlePrintNota(nota)}
+                          className="flex items-center gap-1 bg-[#1f2b5e] text-white rounded px-1.5 py-1 text-[9px] font-bold"
+                        >
+                          <FileDown size={10} /> PDF
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
