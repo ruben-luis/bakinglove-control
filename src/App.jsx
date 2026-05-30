@@ -49,6 +49,12 @@ export default function App() {
     saveNotas(updated)
   }
 
+  const handleDeleteNota = (notaId) => {
+    const updated = notas.filter(n => n.id !== notaId)
+    setNotas(updated)
+    saveNotas(updated)
+  }
+
   const handleSaveGastos = (updatedGastos) => {
     setGastos(updatedGastos)
     saveGastos(updatedGastos)
@@ -58,7 +64,7 @@ export default function App() {
     return <NotaDeVenta onBack={() => setView('dashboard')} onSave={handleSaveNota} />
   }
   if (view === 'historial') {
-    return <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} />
+    return <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
   }
   if (view === 'concentrado') {
     return <ConcentradoIngresos notas={notas} gastos={gastos} onBack={() => setView('dashboard')} />
