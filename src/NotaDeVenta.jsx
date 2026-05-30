@@ -19,9 +19,18 @@ const peekNextFolio = () => {
   return `#${n}`
 }
 
-const todayISO  = () => new Date().toISOString().split('T')[0]
+const todayISO  = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 const dash      = (n) => (n > 0 ? `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-')
-const fmtMoney  = (n) => n > 0 ? `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : '-'
+
+const DIAS_FULL  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
+const MESES_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const formatDateES = (iso) => {
+  if (!iso) return 'Seleccionar fecha…'
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return `${DIAS_FULL[dt.getDay()]} ${d} de ${MESES_FULL[m - 1]} del ${y}`
+}
+const fmtMoney  = (n) => n > 0 ? `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'
 const fmtDate   = (iso) => iso ? iso.split('-').reverse().join('/') : ''
 
 const emptyP = () => ({ cantidad: '', descripcion: '', precioU: '' })
@@ -37,10 +46,22 @@ const LAB = {
 }
 const VAL = { border: `1px solid ${GRAY_LINE}`, padding: 0, verticalAlign: 'middle', height: 34 }
 
-function FI({ type = 'text', value, onChange, placeholder, bg = 'transparent' }) {
+function FI({ type = 'text', value, onChange, onBlur, placeholder, bg = 'transparent' }) {
   return (
-    <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+    <input type={type} value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder} step={type === 'number' ? '0.01' : undefined}
       style={{ width: '100%', height: '100%', minHeight: 34, padding: '0 10px', outline: 'none', background: bg, fontFamily: 'inherit', fontSize: 13.5, color: '#2b2731', border: 'none' }} />
+  )
+}
+
+function DateFieldES({ value, onChange, bg = 'transparent' }) {
+  return (
+    <div style={{ position: 'relative', width: '100%', minHeight: 38, background: bg, display: 'flex', alignItems: 'center', padding: '0 10px' }}>
+      <span style={{ fontSize: 14, fontWeight: 700, color: value ? '#2b2731' : '#bbb', userSelect: 'none', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+        {formatDateES(value)}
+      </span>
+      <input type="date" value={value} onChange={onChange}
+        style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 1 }} />
+    </div>
   )
 }
 
@@ -125,7 +146,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
   }
 
   const DT = { borderCollapse: 'collapse', width: '100%', border: `1px solid ${NAVY}` }
-  const TD = (extra = {}) => ({ border: `1px solid ${GRAY_LINE}`, padding: '0 10px', height: 38, fontSize: 13.5, verticalAlign: 'middle', ...extra })
+  const TD = (extra = {}) => ({ border: `1px solid ${GRAY_LINE}`, padding: '0 10px', height: 42, fontSize: 13.5, verticalAlign: 'middle', ...extra })
 
   return (
     <div style={{ background: '#eceaee', minHeight: '100vh', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', color: '#2b2731' }}>
@@ -207,7 +228,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
             {/* Fecha */}
             <div style={{ display: 'flex', borderBottom: `1px solid ${GRAY_LINE}`, minHeight: 38 }}>
               <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120 }}>Fecha de Entrega</div>
-              <div style={{ flex: 1, background: PINK_HI }}><FI type="date" value={fecha} onChange={e => setF(e.target.value)} bg={PINK_HI} /></div>
+              <div style={{ flex: 1, background: PINK_HI }}><DateFieldES value={fecha} onChange={e => setF(e.target.value)} bg={PINK_HI} /></div>
             </div>
             {/* Cliente */}
             <div style={{ display: 'flex', borderBottom: `1px solid ${GRAY_LINE}`, minHeight: 38 }}>
@@ -224,7 +245,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
             {/* Costo + Contacto */}
             <div style={{ display: 'flex', flexWrap: 'wrap' }}>
               <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Costo por entrega</div>
-              <div style={{ flex: '1 1 80px', minHeight: 38, borderRight: `1px solid ${GRAY_LINE}` }}><FI type="number" value={costo} onChange={e => setK(e.target.value)} placeholder="$0" /></div>
+              <div style={{ flex: '1 1 80px', minHeight: 38, borderRight: `1px solid ${GRAY_LINE}` }}><FI type="number" value={costo} onChange={e => setK(e.target.value)} onBlur={() => { const n = parseFloat(costo); if (!isNaN(n) && n > 0) setK(n.toFixed(2)) }} placeholder="$0" /></div>
               <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Contacto</div>
               <div style={{ flex: '1 1 80px', minHeight: 38 }}><FI value={tel} onChange={e => setT(e.target.value)} placeholder="Teléfono" /></div>
             </div>
@@ -270,15 +291,17 @@ export default function NotaDeVenta({ onBack, onSave }) {
                     <tr key={i}>
                       <td style={{ ...TD({ width: 80 }), padding: 0 }}>
                         <input type="number" value={p.cantidad} onChange={e => updP(i, 'cantidad', e.target.value)}
-                          style={{ width: '100%', height: 38, padding: '0 6px', textAlign: 'center', outline: 'none', background: '#fff', border: 'none', fontFamily: 'inherit', fontSize: 13.5, color: '#444', fontWeight: 700 }} />
+                          style={{ width: '100%', height: 42, padding: '0 6px', textAlign: 'center', outline: 'none', background: '#fff', border: 'none', fontFamily: 'inherit', fontSize: 13.5, color: '#444', fontWeight: 700 }} />
                       </td>
                       <td style={{ ...TD(), padding: 0 }}>
                         <input type="text" value={p.descripcion} onChange={e => updP(i, 'descripcion', e.target.value)}
-                          style={{ width: '100%', height: 38, padding: '0 8px', outline: 'none', background: '#fff', border: 'none', fontFamily: 'inherit', fontSize: 13.5, color: '#2b2731' }} />
+                          style={{ width: '100%', height: 42, padding: '0 8px', outline: 'none', background: '#fff', border: 'none', fontFamily: 'inherit', fontSize: 16, color: '#2b2731' }} />
                       </td>
                       <td style={{ ...TD({ width: 80 }), padding: 0 }}>
                         <input type="number" value={p.precioU} onChange={e => updP(i, 'precioU', e.target.value)}
-                          style={{ width: '100%', height: 38, padding: '0 6px', textAlign: 'center', outline: 'none', background: '#fff', border: 'none', fontFamily: 'inherit', fontSize: 13.5, color: '#444', fontWeight: 700 }} />
+                          onBlur={() => { const n = parseFloat(p.precioU); if (!isNaN(n) && n > 0) updP(i, 'precioU', n.toFixed(2)) }}
+                          step="0.01"
+                          style={{ width: '100%', height: 42, padding: '0 6px', textAlign: 'center', outline: 'none', background: '#fff', border: 'none', fontFamily: 'inherit', fontSize: 13.5, color: '#444', fontWeight: 700 }} />
                       </td>
                       <td style={TD({ width: 70, textAlign: 'right', color: '#888', fontWeight: 700 })}>
                         {ln > 0 ? dash(ln) : '-'}
@@ -357,6 +380,8 @@ export default function NotaDeVenta({ onBack, onSave }) {
                     <td style={TD({ width: 36, textAlign: 'center', fontWeight: 700, fontSize: 15 })}>{i + 1}</td>
                     <td style={{ border: `1px solid ${GRAY_LINE}`, padding: 0, height: 38 }}>
                       <input type="number" value={p.monto} onChange={e => updG(i, 'monto', e.target.value)}
+                        onBlur={() => { const n = parseFloat(p.monto); if (!isNaN(n) && n > 0) updG(i, 'monto', n.toFixed(2)) }}
+                        step="0.01"
                         style={{ width: '100%', height: 38, padding: '0 8px', outline: 'none', background: '#fff', border: 'none', fontFamily: 'inherit', fontSize: 13.5, color: '#2b2731' }} />
                     </td>
                     <td style={{ border: `1px solid ${GRAY_LINE}`, padding: 0, height: 38 }}>

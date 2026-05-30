@@ -20,12 +20,12 @@ const METODOS  = ['Transferencia', 'Efectivo', 'Terminal']
 const DIAS_ES  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
 const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
-const todayISO  = () => new Date().toISOString().split('T')[0]
-const fmtMoney  = (n) => { const v = Number(n) || 0; return v > 0 ? `$${v.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : '-' }
+const todayISO  = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
+const fmtMoney  = (n) => { const v = Number(n) || 0; return v > 0 ? `$${v.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-' }
 const fmtEntrega  = (iso) => { if (!iso) return '—'; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 const fmtCreacion = (isoStr) => { if (!isoStr) return ''; const d = new Date(isoStr); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` }
 const labelFecha  = (isoStr) => { const d = new Date(isoStr); return `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]} ${d.getFullYear()}` }
-const creacionDay = (nota) => nota.createdAt ? nota.createdAt.split('T')[0] : ''
+const creacionDay = (nota) => { if (!nota.createdAt) return ''; const d = new Date(nota.createdAt); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 
 const emptyP = () => ({ cantidad: '', descripcion: '', precioU: '' })
 const emptyG = () => ({ monto: '', fecha: todayISO(), met: null })
@@ -83,7 +83,7 @@ function SectionHead({ label }) {
   )
 }
 
-function FieldInput({ label, value, onChange, type = 'text', placeholder = '' }) {
+function FieldInput({ label, value, onChange, onBlur, type = 'text', placeholder = '' }) {
   return (
     <div style={{ flex: 1 }}>
       {label && <div style={{ fontSize: 10, fontWeight: 700, color: '#888', marginBottom: 3 }}>{label}</div>}
@@ -91,7 +91,9 @@ function FieldInput({ label, value, onChange, type = 'text', placeholder = '' })
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
+        step={type === 'number' ? '0.01' : undefined}
         style={{ width: '100%', height: 36, padding: '0 10px', border: `1px solid ${LINE_SOFT}`, borderRadius: 6, outline: 'none', fontFamily: 'inherit', fontSize: 13, color: '#1a1a22', background: '#fff' }}
       />
     </div>
@@ -211,7 +213,8 @@ function EditModal({ nota, onClose, onSave, onDelete }) {
             </div>
             <FieldInput label="Lugar de entrega" value={lugar} onChange={setLugar} placeholder="Dirección…" />
             <div style={{ display: 'flex', gap: 9 }}>
-              <FieldInput label="Costo por entrega" type="number" value={costo} onChange={setCosto} placeholder="0" />
+              <FieldInput label="Costo por entrega" type="number" value={costo} onChange={setCosto} placeholder="0"
+                onBlur={() => { const n = parseFloat(costo); if (!isNaN(n) && n > 0) setCosto(n.toFixed(2)) }} />
               <FieldInput label="Contacto" value={tel} onChange={setTel} placeholder="Teléfono…" />
             </div>
           </div>
@@ -232,7 +235,9 @@ function EditModal({ nota, onClose, onSave, onDelete }) {
                   </div>
                   <div style={{ width: 76 }}>
                     <div style={{ fontSize: 9, fontWeight: 700, color: '#aaa', marginBottom: 3 }}>PRECIO U</div>
-                    <input type="number" value={p.precioU} onChange={e => updP(i, 'precioU', e.target.value)} placeholder="0" style={inputSm} />
+                    <input type="number" value={p.precioU} onChange={e => updP(i, 'precioU', e.target.value)}
+                      onBlur={() => { const n = parseFloat(p.precioU); if (!isNaN(n) && n > 0) updP(i, 'precioU', n.toFixed(2)) }}
+                      step="0.01" placeholder="0" style={inputSm} />
                   </div>
                   <button onClick={() => setProds(a => a.filter((_, idx) => idx !== i))}
                     style={{ width: 34, height: 34, background: RED_BG, border: 'none', borderRadius: 6, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
@@ -289,6 +294,8 @@ function EditModal({ nota, onClose, onSave, onDelete }) {
                   <div>
                     <div style={{ fontSize: 9, fontWeight: 700, color: '#aaa', marginBottom: 3 }}>MONTO</div>
                     <input type="number" value={p.monto} onChange={e => updG(i, 'monto', e.target.value)} placeholder="$0"
+                      onBlur={() => { const n = parseFloat(p.monto); if (!isNaN(n) && n > 0) updG(i, 'monto', n.toFixed(2)) }}
+                      step="0.01"
                       style={{ width: '100%', height: 34, padding: '0 10px', border: `1px solid ${LINE_SOFT}`, borderRadius: 6, outline: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: '#1a1a22', background: '#fff' }} />
                   </div>
                   <div>
@@ -363,15 +370,16 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
   const [editando,   setEditando]   = useState(null)
   const [filterDate, setFilterDate] = useState(todayISO)
 
+  const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   const prevDay = () => {
     const d = new Date(filterDate + 'T12:00:00')
     d.setDate(d.getDate() - 1)
-    setFilterDate(d.toISOString().split('T')[0])
+    setFilterDate(localISO(d))
   }
   const nextDay = () => {
     const d = new Date(filterDate + 'T12:00:00')
     d.setDate(d.getDate() + 1)
-    setFilterDate(d.toISOString().split('T')[0])
+    setFilterDate(localISO(d))
   }
   const isToday = filterDate === todayISO()
 

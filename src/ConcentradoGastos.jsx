@@ -14,11 +14,11 @@ function labelDia(isoStr) {
 const FORMAS_PAGO = ['Tarjeta', 'Transferencia', 'Efectivo']
 const CATEGORIAS  = ['Pasteleria', 'Personal']
 
-const todayISO = () => new Date().toISOString().split('T')[0]
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 
 function fmt(n) {
   const v = Number(n) || 0
-  return v !== 0 ? `$${v.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : '$ -'
+  return v !== 0 ? `$${v.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$ -'
 }
 
 function emptyGasto(fecha) {
@@ -130,8 +130,9 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
   const prevWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d) }
   const nextWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d) }
 
-  const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(d.toISOString().split('T')[0]) }
-  const nextDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 1); setFilterDate(d.toISOString().split('T')[0]) }
+  const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(localISO(d)) }
+  const nextDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 1); setFilterDate(localISO(d)) }
   const isDiaHoy = filterDate === todayISO()
   const labelDiaFiltro = (iso) => {
     if (iso === todayISO()) return 'Hoy'

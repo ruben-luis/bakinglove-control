@@ -7,12 +7,12 @@ const DIAS  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sába
 
 function fmt(n) {
   if (!n || n === 0) return '$ -'
-  return `$ ${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+  return `$ ${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function fmtShort(n) {
   if (!n || n === 0) return '-'
-  return `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+  return `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function getWeekRange(date) {
@@ -61,7 +61,7 @@ function labelDia(isoStr) {
   return `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]}`
 }
 
-const todayISO = () => new Date().toISOString().split('T')[0]
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 
 export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
   const now  = new Date()
@@ -69,8 +69,9 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
   const [filterDate, setFilterDate] = useState(todayISO)
   const week = getWeekRange(refDate)
 
-  const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(d.toISOString().split('T')[0]) }
-  const nextDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 1); setFilterDate(d.toISOString().split('T')[0]) }
+  const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(localISO(d)) }
+  const nextDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 1); setFilterDate(localISO(d)) }
   const isDiaHoy = filterDate === todayISO()
   const labelDiaFiltro = (iso) => {
     if (iso === todayISO()) return 'Hoy'
@@ -83,7 +84,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
     return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
   })
 
-  const notasDia = notasMes.filter(n => n.createdAt.split('T')[0] === filterDate)
+  const notasDia = notasMes.filter(n => { const d = new Date(n.createdAt); return localISO(d) === filterDate })
 
   const gastosMes = gastos.filter(g => {
     const d = new Date(g.createdAt)
