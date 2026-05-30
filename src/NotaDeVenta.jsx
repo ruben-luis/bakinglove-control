@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ArrowLeft, Save, Plus, Phone, MapPin, FileDown } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Phone, MapPin, FileDown, CalendarDays } from 'lucide-react'
 import { printNota } from './printNota'
 
 // ── Design tokens ────────────────────────────────────────────
@@ -55,10 +55,11 @@ function FI({ type = 'text', value, onChange, onBlur, placeholder, bg = 'transpa
 
 function DateFieldES({ value, onChange, bg = 'transparent' }) {
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: 38, background: bg, display: 'flex', alignItems: 'center', padding: '0 10px' }}>
-      <span style={{ fontSize: 14, fontWeight: 700, color: value ? '#2b2731' : '#bbb', userSelect: 'none', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+    <div style={{ position: 'relative', width: '100%', minHeight: 38, background: bg, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 8 }}>
+      <span style={{ fontSize: 14, fontWeight: 700, color: value ? '#2b2731' : '#bbb', userSelect: 'none', pointerEvents: 'none', whiteSpace: 'nowrap', flex: 1 }}>
         {formatDateES(value)}
       </span>
+      <CalendarDays size={16} strokeWidth={2} color="#d9748f" style={{ flexShrink: 0, pointerEvents: 'none' }} />
       <input type="date" value={value} onChange={onChange}
         style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 1 }} />
     </div>
