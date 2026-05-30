@@ -103,7 +103,7 @@ function CategoriaPicker({ value, onChange }) {
 // ── Sección de cabecera ───────────────────────────────────────
 function TableHead({ label }) {
   return (
-    <div className="bg-gray-200 text-ink text-center py-2 text-[10px] font-bold tracking-widest">
+    <div className="bg-sky-soft text-ink text-center py-2 text-[10px] font-bold tracking-widest">
       {label}
     </div>
   )
@@ -202,7 +202,7 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
 
   // Estilos de celda
   const tdBase = { border: '1px solid #e2e2e6', verticalAlign: 'middle', padding: 0, height: 32 }
-  const thBase = { background: '#1f2b5e', color: '#fff', fontWeight: 700, fontSize: 10, padding: '7px 8px', border: '1px solid rgba(255,255,255,.15)', textAlign: 'left', whiteSpace: 'nowrap' }
+  const thBase = { background: '#DEECF8', color: '#2b2731', fontWeight: 700, fontSize: 10, padding: '7px 8px', border: '1px solid rgba(98,152,203,.3)', textAlign: 'left', whiteSpace: 'nowrap' }
 
   return (
     <div className="min-h-screen bg-cream">
@@ -332,9 +332,9 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
         {/* ACUMULADO DE SALIDAS — por método */}
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="ACUMULADO DE SALIDAS" />
-          <div className="grid grid-cols-3 bg-ink text-cream">
+          <div className="grid grid-cols-3 bg-sky-soft text-ink">
             {['Tarjeta', 'Transferencia', 'Efectivo'].map(m => (
-              <div key={m} className="px-2 py-2 text-[10px] font-bold text-center border-r border-cream/20 last:border-r-0">{m}</div>
+              <div key={m} className="px-2 py-2 text-[10px] font-bold text-center border-r border-sky-deep/20 last:border-r-0">{m}</div>
             ))}
           </div>
           <div className="grid grid-cols-3">
@@ -364,9 +364,9 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
         {/* ACUMULADO DE SALIDAS — por categoría */}
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="ACUMULADO DE SALIDAS POR CATEGORÍA" />
-          <div className="grid grid-cols-2 bg-ink text-cream">
+          <div className="grid grid-cols-2 bg-sky-soft text-ink">
             {['Pasteleria', 'Personal'].map(c => (
-              <div key={c} className="px-2 py-2 text-[10px] font-bold text-center border-r border-cream/20 last:border-r-0">{c}</div>
+              <div key={c} className="px-2 py-2 text-[10px] font-bold text-center border-r border-sky-deep/20 last:border-r-0">{c}</div>
             ))}
           </div>
           <div className="grid grid-cols-2">

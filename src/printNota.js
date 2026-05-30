@@ -182,8 +182,8 @@ export async function printNota({
   /* ── Tablas de datos ── */
   .dt{border:1px solid #1f2b5e;}
   .dt thead th{
-    background:#1f2b5e;color:#fff;font-size:7.5pt;font-weight:700;
-    padding:2.5px 4px;border-right:1px solid rgba(255,255,255,.2);
+    background:#FBE0E8;color:#2b2731;font-size:7.5pt;font-weight:700;
+    padding:2.5px 4px;border-right:1px solid rgba(217,116,143,.25);
     text-align:left;white-space:nowrap;
   }
   .dt td{
@@ -385,8 +385,8 @@ export function printHistorial({ mesLabel, rows, acum, totalBancos, totalEfectiv
   .barhead{background:#e4e4e8;text-align:center;font-weight:800;font-size:9pt;letter-spacing:1px;padding:3px;border:1px solid #c9c9d0;margin-top:4mm;}
 
   table{border-collapse:collapse;width:100%;}
-  thead tr{background:#1f2b5e;}
-  thead th{color:#fff;font-size:8pt;font-weight:700;padding:4px 6px;border-right:1px solid rgba(255,255,255,.2);text-align:left;white-space:nowrap;}
+  thead tr{background:#E0EDDA;}
+  thead th{color:#2b2731;font-size:8pt;font-weight:700;padding:4px 6px;border-right:1px solid rgba(116,160,95,.3);text-align:left;white-space:nowrap;}
   thead th:last-child{border-right:none;}
   tbody td{border:1px solid #c9c9d0;padding:3px 6px;font-size:8pt;vertical-align:middle;height:6.2mm;}
   tbody tr:nth-child(even) td{background:#fafafa;}

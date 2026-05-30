@@ -29,7 +29,7 @@ function getWeekRange(date) {
 
 function TableHead({ label }) {
   return (
-    <div className="bg-gray-200 text-ink text-center py-2 text-[10px] font-bold tracking-widest">
+    <div className="bg-mint-soft text-ink text-center py-2 text-[10px] font-bold tracking-widest">
       {label}
     </div>
   )
@@ -229,9 +229,9 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-[10px]">
               <thead>
-                <tr className="bg-ink text-cream">
+                <tr style={{ background: '#E0EDDA' }}>
                   {['#', 'Fecha', 'Nota de venta', 'Producto', 'Monto Total', 'Anticipo', 'Restante', 'Forma de pago', ''].map(h => (
-                    <th key={h} className="px-2 py-2 text-left font-bold border-r border-cream/20 last:border-r-0 whitespace-nowrap">
+                    <th key={h} style={{ color: '#2b2731', fontWeight: 700, fontSize: 10, padding: '8px 8px', borderRight: '1px solid rgba(116,160,95,.3)', textAlign: 'left', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}
@@ -323,9 +323,9 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
         {/* Acumulado de ingresos */}
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="ACUMULADO DE INGRESOS" />
-          <div className="grid grid-cols-3 bg-ink text-cream">
+          <div className="grid grid-cols-3 bg-mint-soft text-ink">
             {['Terminal', 'Transferencia', 'Efectivo'].map(m => (
-              <div key={m} className="px-2 py-2 text-[10px] font-bold text-center border-r border-cream/20 last:border-r-0">{m}</div>
+              <div key={m} className="px-2 py-2 text-[10px] font-bold text-center border-r border-mint-deep/20 last:border-r-0">{m}</div>
             ))}
           </div>
           <div className="grid grid-cols-3">

@@ -54,9 +54,9 @@ function BarHead({ label }) {
 
 function NavyTH({ cols }) {
   return (
-    <tr style={{ background: NAVY }}>
+    <tr style={{ background: '#FBE0E8' }}>
       {cols.map(({ label, width }, i) => (
-        <th key={label} style={{ color: '#fff', fontWeight: 700, fontSize: 11, letterSpacing: 0.4, padding: '8px 6px', borderRight: i < cols.length - 1 ? '1px solid rgba(255,255,255,.18)' : 'none', width: width || undefined, textAlign: 'left', whiteSpace: 'nowrap' }}>
+        <th key={label} style={{ color: '#2b2731', fontWeight: 700, fontSize: 11, letterSpacing: 0.4, padding: '8px 6px', borderRight: i < cols.length - 1 ? '1px solid rgba(217,116,143,.25)' : 'none', width: width || undefined, textAlign: 'left', whiteSpace: 'nowrap' }}>
           {label}
         </th>
       ))}

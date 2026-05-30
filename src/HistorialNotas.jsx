@@ -394,7 +394,7 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
   const emptyCount = Math.max(0, MIN_ROWS - filteredNotas.length)
 
   const TH = (extra = {}) => ({
-    background: '#fff', color: HEAD_INK, fontWeight: 800, fontSize: 12,
+    background: '#E9E0F6', color: HEAD_INK, fontWeight: 800, fontSize: 12,
     letterSpacing: .3, padding: '9px 8px', border: `1px solid ${LINE}`,
     textAlign: 'center', whiteSpace: 'nowrap', fontFamily: 'inherit', ...extra,
   })
