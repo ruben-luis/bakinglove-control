@@ -6,6 +6,7 @@ import HistorialNotas from './HistorialNotas'
 import ConcentradoIngresos from './ConcentradoIngresos'
 import ConcentradoGastos from './ConcentradoGastos'
 import CalendarioEntregas from './CalendarioEntregas'
+import PinModal, { savePin } from './PinModal'
 
 function loadNotas() {
   try {
@@ -31,16 +32,23 @@ function saveGastos(gastos) {
   localStorage.setItem('bkl_gastos', JSON.stringify(gastos))
 }
 
+// pinAction values:
+//   null            – no modal
+//   'nav-concentrado' | 'nav-gastos' – navigate after verify
+//   'change-verify' – first step: verify current PIN
+//   'change-new'    – second step: enter new PIN
+
 export default function App() {
-  const [view,   setView]   = useState('dashboard')
-  const [notas,  setNotas]  = useState(loadNotas)
-  const [gastos, setGastos] = useState(loadGastos)
+  const [view,      setView]      = useState('dashboard')
+  const [notas,     setNotas]     = useState(loadNotas)
+  const [gastos,    setGastos]    = useState(loadGastos)
+  const [pinAction, setPinAction] = useState(null)
 
   const handleSaveNota = (nota) => {
     const updated = [nota, ...notas]
     setNotas(updated)
     saveNotas(updated)
-    setView('concentrado')
+    setView('historial')
   }
 
   const handleEditNota = (notaEditada) => {
@@ -60,20 +68,67 @@ export default function App() {
     saveGastos(updatedGastos)
   }
 
+  // Intercept protected destinations
+  function navigate(dest) {
+    if (dest === 'concentrado' || dest === 'gastos') {
+      setPinAction('nav-' + dest)
+    } else {
+      setView(dest)
+    }
+  }
+
+  function handlePinSuccess(pin) {
+    if (pinAction === 'nav-concentrado') {
+      setView('concentrado')
+      setPinAction(null)
+    } else if (pinAction === 'nav-gastos') {
+      setView('gastos')
+      setPinAction(null)
+    } else if (pinAction === 'change-verify') {
+      setPinAction('change-new')
+    } else if (pinAction === 'change-new') {
+      savePin(pin)
+      setPinAction(null)
+    }
+  }
+
+  const pinTitle = pinAction === 'change-new' ? 'Ingresa tu nuevo NIP' : 'Ingresa tu NIP'
+  const pinMode  = pinAction === 'change-new' ? 'enter-new' : 'verify'
+
+  let content
   if (view === 'nota') {
-    return <NotaDeVenta onBack={() => setView('dashboard')} onSave={handleSaveNota} />
+    content = <NotaDeVenta onBack={() => setView('dashboard')} onSave={handleSaveNota} />
+  } else if (view === 'historial') {
+    content = <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
+  } else if (view === 'concentrado') {
+    content = <ConcentradoIngresos notas={notas} gastos={gastos} onBack={() => setView('dashboard')} />
+  } else if (view === 'gastos') {
+    content = <ConcentradoGastos gastos={gastos} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
+  } else if (view === 'calendario') {
+    content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} />
+  } else {
+    content = (
+      <Dashboard
+        onNavigate={navigate}
+        notas={notas}
+        gastos={gastos}
+        onChangePinRequest={() => setPinAction('change-verify')}
+      />
+    )
   }
-  if (view === 'historial') {
-    return <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
-  }
-  if (view === 'concentrado') {
-    return <ConcentradoIngresos notas={notas} gastos={gastos} onBack={() => setView('dashboard')} />
-  }
-  if (view === 'gastos') {
-    return <ConcentradoGastos gastos={gastos} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
-  }
-  if (view === 'calendario') {
-    return <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} />
-  }
-  return <Dashboard onNavigate={setView} notas={notas} gastos={gastos} />
+
+  return (
+    <>
+      {content}
+      {pinAction && (
+        <PinModal
+          key={pinAction}
+          title={pinTitle}
+          mode={pinMode}
+          onSuccess={handlePinSuccess}
+          onCancel={() => setPinAction(null)}
+        />
+      )}
+    </>
+  )
 }

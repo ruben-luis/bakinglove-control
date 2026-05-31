@@ -5,7 +5,9 @@ import {
   Plus, Pencil, ArrowRight, Calendar,
   CakeSlice, Cookie, Candy, IceCreamCone,
   Croissant, Cherry, Cake, Coffee, ClipboardList,
+  Lock, KeyRound,
 } from 'lucide-react'
+import PinModal from './PinModal'
 
 // ═══════════════════════════════════════════════════════════════
 // ÍCONOS FLOTANTES DE FONDO
@@ -193,7 +195,7 @@ function StatBox({ label, amount, color, isNeg = false }) {
 // CORTE DE CAJA CARD
 // ═══════════════════════════════════════════════════════════════
 
-function CorteCard({ notas, gastos }) {
+function CorteCard({ notas, gastos, unlocked = false, onUnlockClick }) {
   const [rainKey, setRainKey] = useState(0)
 
   const { ganaste, gastaste } = useMemo(() => {
@@ -235,13 +237,49 @@ function CorteCard({ notas, gastos }) {
         </span>
       </div>
 
-      {/* Three stat columns */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr' }}>
-        <StatBox label="Ganaste"  amount={ganaste}        color="#6ee7b7" />
-        <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
-        <StatBox label="Gastaste" amount={gastaste}       color="#fca5a5" />
-        <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
-        <StatBox label="Tienes"   amount={tienes}         color={positivo ? '#fde68a' : '#fca5a5'} isNeg />
+      {/* Three stat columns with blur when locked */}
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
+          filter: unlocked ? 'none' : 'blur(7px)',
+          userSelect: unlocked ? 'auto' : 'none',
+          transition: 'filter 0.35s',
+        }}>
+          <StatBox label="Ganaste"  amount={ganaste}  color="#6ee7b7" />
+          <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
+          <StatBox label="Gastaste" amount={gastaste} color="#fca5a5" />
+          <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
+          <StatBox label="Tienes"   amount={tienes}   color={positivo ? '#fde68a' : '#fca5a5'} isNeg />
+        </div>
+
+        {!unlocked && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 2,
+          }}>
+            <button
+              onClick={onUnlockClick}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '9px 20px',
+                borderRadius: 22,
+                border: '2px solid rgba(255,255,255,.55)',
+                background: 'rgba(255,255,255,.18)',
+                color: '#fff',
+                fontSize: 13,
+                fontWeight: 800,
+                cursor: 'pointer',
+                backdropFilter: 'blur(4px)',
+                letterSpacing: 0.4,
+                boxShadow: '0 2px 10px rgba(0,0,0,.25)',
+              }}
+            >
+              <Lock size={13} strokeWidth={2.5} />
+              Ver corte
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Footer bar */}
@@ -354,8 +392,10 @@ const buildModules = (onNavigate) => [
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 
-export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [] }) {
+export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], onChangePinRequest }) {
   const modules = buildModules(onNavigate)
+  const [corteUnlocked, setCorteUnlocked] = useState(false)
+  const [showCortePin,  setShowCortePin]  = useState(false)
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-cream">
@@ -367,17 +407,49 @@ export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = 
         <TopBar />
         <Hero />
 
-        <CorteCard notas={notas} gastos={gastos} />
+        <CorteCard
+          notas={notas}
+          gastos={gastos}
+          unlocked={corteUnlocked}
+          onUnlockClick={() => setShowCortePin(true)}
+        />
 
         <main className="grid grid-cols-1 sm:grid-cols-2 gap-5 px-1">
           {modules.map((m, i) => (
             <ModuleCard key={m.title} data={m} index={i} onOpen={m.onOpen} />
           ))}
         </main>
+
         <footer className="mt-12 text-center text-ink/35 text-xs font-semibold tracking-wide">
           Bakinglove · Sistema de gestión interno · Diseñado por LDR A&S
+          {onChangePinRequest && (
+            <div style={{ marginTop: 10 }}>
+              <button
+                onClick={onChangePinRequest}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#d9748f', fontSize: 11, fontWeight: 700,
+                  textDecoration: 'underline', padding: '2px 4px',
+                  opacity: 0.75,
+                }}
+              >
+                <KeyRound size={11} strokeWidth={2.5} />
+                Cambiar NIP
+              </button>
+            </div>
+          )}
         </footer>
       </div>
+
+      {showCortePin && (
+        <PinModal
+          title="Ingresa tu NIP"
+          mode="verify"
+          onSuccess={() => { setCorteUnlocked(true); setShowCortePin(false) }}
+          onCancel={() => setShowCortePin(false)}
+        />
+      )}
     </div>
   )
 }
