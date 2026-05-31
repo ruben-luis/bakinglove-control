@@ -216,16 +216,15 @@ export default function SanRamonView({ onBack, onSrChange }) {
           </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 520 }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ ...thBase, width: 42 }}>#</th>
-                  <th style={{ ...thBase, width: 72, color: VENTA_TX }}>VENTA</th>
-                  <th style={{ ...thBase, width: 72, color: SALIDA_TX }}>SALIDA</th>
-                  <th style={{ ...thBase, textAlign: 'left', paddingLeft: 12 }}>PRODUCTO / DESCRIPCIÓN</th>
-                  <th style={{ ...thBase, width: 120 }}>PRECIO TOTAL</th>
-                  <th style={{ ...thBase, width: 148 }}>MÉTODO</th>
-                  <th style={{ ...thBase, width: 32 }}></th>
+                  <th style={{ ...thBase, width: 28 }}>#</th>
+                  <th style={{ ...thBase, width: 54 }}>TIPO</th>
+                  <th style={{ ...thBase, textAlign: 'left', paddingLeft: 8 }}>PRODUCTO</th>
+                  <th style={{ ...thBase, width: 80 }}>$ TOTAL</th>
+                  <th style={{ ...thBase, width: 52 }}>MÉT</th>
+                  <th style={{ ...thBase, width: 26 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -243,25 +242,31 @@ export default function SanRamonView({ onBack, onSrChange }) {
                         {String(i + 1).padStart(2, '0')}
                       </td>
 
-                      {/* VENTA */}
-                      <td style={{ ...tdBase, cursor: 'pointer', background: isV ? VENTA_BG : undefined }}
-                        onClick={() => toggleTipo(i, 'venta')}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 5 }}>
-                          <div style={{ width: 17, height: 17, borderRadius: 4, border: `1.8px solid ${isV ? VENTA_TX : '#c2c2cc'}`, background: isV ? VENTA_TX : 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                            {isV && CHECK}
-                          </div>
-                          {isV && <span style={{ fontSize: 10, fontWeight: 800, color: VENTA_TX }}>VENTA</span>}
-                        </div>
-                      </td>
-
-                      {/* SALIDA */}
-                      <td style={{ ...tdBase, cursor: 'pointer', background: isS ? SALIDA_BG : undefined }}
-                        onClick={() => toggleTipo(i, 'salida')}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 5 }}>
-                          <div style={{ width: 17, height: 17, borderRadius: 4, border: `1.8px solid ${isS ? SALIDA_TX : '#c2c2cc'}`, background: isS ? SALIDA_TX : 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                            {isS && CHECK}
-                          </div>
-                          {isS && <span style={{ fontSize: 10, fontWeight: 800, color: SALIDA_TX }}>SALIDA</span>}
+                      {/* TIPO */}
+                      <td style={{ ...tdBase, padding: 0, width: 54 }}>
+                        <div style={{ display: 'flex', height: '100%' }}>
+                          <div
+                            onClick={() => toggleTipo(i, 'venta')}
+                            style={{
+                              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, fontWeight: 800,
+                              color: isV ? VENTA_TX : '#ccc',
+                              background: isV ? VENTA_BG : 'transparent',
+                              cursor: 'pointer', borderRight: `1px solid ${LINE_SOFT}`,
+                              transition: 'background 0.1s',
+                            }}
+                          >V</div>
+                          <div
+                            onClick={() => toggleTipo(i, 'salida')}
+                            style={{
+                              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, fontWeight: 800,
+                              color: isS ? SALIDA_TX : '#ccc',
+                              background: isS ? SALIDA_BG : 'transparent',
+                              cursor: 'pointer',
+                              transition: 'background 0.1s',
+                            }}
+                          >S</div>
                         </div>
                       </td>
 
@@ -290,23 +295,21 @@ export default function SanRamonView({ onBack, onSrChange }) {
                       </td>
 
                       {/* Método */}
-                      <td style={{ ...tdBase, padding: 0 }}>
+                      <td style={{ ...tdBase, padding: 0, width: 52 }}>
                         <div style={{ display: 'flex', height: '100%' }}>
-                          {['Efectivo', 'Banco'].map((m, mi) => (
+                          {[['Efectivo','EF'], ['Banco','BK']].map(([m, label], mi) => (
                             <div key={m}
                               onClick={() => toggleMetodo(i, m)}
                               style={{
                                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 12, fontWeight: row.metodo === m ? 800 : 600,
-                                color: row.metodo === m ? NAVY : '#aaa',
+                                fontSize: 10, fontWeight: row.metodo === m ? 800 : 600,
+                                color: row.metodo === m ? NAVY : '#bbb',
                                 cursor: 'pointer', userSelect: 'none',
                                 borderRight: mi === 0 ? `1px solid ${LINE_SOFT}` : 'none',
                                 background: row.metodo === m ? '#e7eefb' : 'transparent',
                                 transition: 'background 0.1s',
                               }}
-                            >
-                              {m}
-                            </div>
+                            >{label}</div>
                           ))}
                         </div>
                       </td>
@@ -330,7 +333,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
               {/* Total */}
               <tfoot>
                 <tr>
-                  <td colSpan={4} style={{ ...tdBase, textAlign: 'right', paddingRight: 16, fontWeight: 800, fontSize: 12, letterSpacing: 0.8, background: '#f4f3f6' }}>
+                  <td colSpan={3} style={{ ...tdBase, textAlign: 'right', paddingRight: 16, fontWeight: 800, fontSize: 12, letterSpacing: 0.8, background: '#f4f3f6' }}>
                     TOTAL
                   </td>
                   <td colSpan={2} style={{ ...tdBase, background: '#f4f3f6', padding: '0 14px' }}>

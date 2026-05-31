@@ -195,10 +195,24 @@ function StatBox({ label, amount, color, isNeg = false }) {
 // CORTE DE CAJA CARD
 // ═══════════════════════════════════════════════════════════════
 
+// ── etiqueta de sección dentro del corte ─────────────────────────────────────
+function SectionLabel({ children, color = 'rgba(255,255,255,.35)' }) {
+  return (
+    <div style={{
+      padding: '6px 14px 2px',
+      fontSize: 9, fontWeight: 800, letterSpacing: 2,
+      color, textTransform: 'uppercase',
+      position: 'relative', zIndex: 1,
+    }}>
+      {children}
+    </div>
+  )
+}
+
 function CorteCard({ notas, gastos, srRows = [], unlocked = false, onUnlockClick }) {
   const [rainKey, setRainKey] = useState(0)
 
-  const { ganaste, gastaste } = useMemo(() => {
+  const stats = useMemo(() => {
     const { mon, sun } = thisWeekRange()
 
     const inWeek = fecha => {
@@ -206,73 +220,95 @@ function CorteCard({ notas, gastos, srRows = [], unlocked = false, onUnlockClick
       return d >= mon && d <= sun
     }
 
-    const ganaste =
-      notas.filter(n => inWeek(n.createdAt)).reduce((s, n) => s + (Number(n.totalPagado) || 0), 0) +
-      srRows.filter(r => r.tipo === 'venta' && r.fecha && inWeek(r.fecha)).reduce((s, r) => s + (Number(r.precio) || 0), 0)
+    const bklGanaste = notas
+      .filter(n => inWeek(n.createdAt))
+      .reduce((s, n) => s + (Number(n.totalPagado) || 0), 0)
 
-    const gastaste =
-      gastos.filter(g => inWeek(g.fecha && g.fecha.length === 10 ? g.fecha + 'T12:00:00' : g.createdAt)).reduce((s, g) => s + (Number(g.monto) || 0), 0) +
-      srRows.filter(r => r.tipo === 'salida' && r.fecha && inWeek(r.fecha)).reduce((s, r) => s + (Number(r.precio) || 0), 0)
+    const bklGastaste = gastos
+      .filter(g => inWeek(g.fecha && g.fecha.length === 10 ? g.fecha + 'T12:00:00' : g.createdAt))
+      .reduce((s, g) => s + (Number(g.monto) || 0), 0)
 
-    return { ganaste, gastaste }
+    const srVentas = srRows
+      .filter(r => r.tipo === 'venta' && r.fecha && inWeek(r.fecha))
+      .reduce((s, r) => s + (Number(r.precio) || 0), 0)
+
+    const srSalidas = srRows
+      .filter(r => r.tipo === 'salida' && r.fecha && inWeek(r.fecha))
+      .reduce((s, r) => s + (Number(r.precio) || 0), 0)
+
+    return { bklGanaste, bklGastaste, srVentas, srSalidas }
   }, [notas, gastos, srRows])
 
-  const tienes = ganaste - gastaste
-  const positivo = tienes >= 0
+  const { bklGanaste, bklGastaste, srVentas, srSalidas } = stats
+  const bklTienes  = bklGanaste - bklGastaste
+  const srNeto     = srVentas - srSalidas
+  const totalTienes = bklTienes + srNeto
+  const positivo    = totalTienes >= 0
 
-  useEffect(() => {
-    setRainKey(k => k + 1)
-  }, [ganaste, gastaste])
+  useEffect(() => { setRainKey(k => k + 1) }, [bklGanaste, bklGastaste, srVentas, srSalidas])
+
+  const sep = <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
 
   return (
     <section style={{ position: 'relative', margin: '0 4px 22px', borderRadius: 24, border: '2px solid #2b2731', background: '#1f2b5e', overflow: 'hidden', boxShadow: '5px 5px 0 #2b2731' }}>
       <MoneyRain rainKey={rainKey} />
 
       {/* Header */}
-      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,.12)' }}>
-        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, color: 'rgba(255,255,255,.55)' }}>
-          CORTE DE CAJA
-        </span>
-        <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.3)', marginLeft: 8 }}>
-          Esta semana
-        </span>
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '11px 16px 7px', borderBottom: '1px solid rgba(255,255,255,.12)' }}>
+        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, color: 'rgba(255,255,255,.55)' }}>CORTE DE CAJA</span>
+        <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.3)', marginLeft: 8 }}>Esta semana</span>
       </div>
 
-      {/* Three stat columns with blur when locked */}
+      {/* Blurable area */}
       <div style={{ position: 'relative' }}>
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
           filter: unlocked ? 'none' : 'blur(7px)',
           userSelect: unlocked ? 'auto' : 'none',
           transition: 'filter 0.35s',
         }}>
-          <StatBox label="Ganaste"  amount={ganaste}  color="#6ee7b7" />
-          <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
-          <StatBox label="Gastaste" amount={gastaste} color="#fca5a5" />
-          <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
-          <StatBox label="Tienes"   amount={tienes}   color={positivo ? '#fde68a' : '#fca5a5'} isNeg />
+
+          {/* ── Bakinglove ─────────────────────────────────── */}
+          <SectionLabel>● Bakinglove</SectionLabel>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr' }}>
+            <StatBox label="Ganaste"  amount={bklGanaste}  color="#6ee7b7" />
+            {sep}
+            <StatBox label="Gastaste" amount={bklGastaste} color="#fca5a5" />
+            {sep}
+            <StatBox label="Tienes"   amount={bklTienes}   color={bklTienes >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+          </div>
+
+          {/* ── San Ramón ───────────────────────────────────── */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
+            <SectionLabel color="rgba(249,168,212,.6)">● San Ramón</SectionLabel>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr' }}>
+              <StatBox label="Ventas"   amount={srVentas}  color="#6ee7b7" />
+              {sep}
+              <StatBox label="Salidas"  amount={srSalidas} color="#fca5a5" />
+              {sep}
+              <StatBox label="Debo tener" amount={srNeto}  color={srNeto >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+            </div>
+          </div>
+
+          {/* ── Total general ───────────────────────────────── */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.12)', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase' }}>Total general</span>
+            <span style={{ fontSize: 15, fontWeight: 900, color: positivo ? '#fde68a' : '#fca5a5', fontVariantNumeric: 'tabular-nums' }}>
+              {totalTienes < 0 ? '-' : ''}${Math.abs(totalTienes).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
         </div>
 
         {!unlocked && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 2,
-          }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
             <button
               onClick={onUnlockClick}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7,
-                padding: '9px 20px',
-                borderRadius: 22,
+                padding: '9px 20px', borderRadius: 22,
                 border: '2px solid rgba(255,255,255,.55)',
-                background: 'rgba(255,255,255,.18)',
-                color: '#fff',
-                fontSize: 13,
-                fontWeight: 800,
-                cursor: 'pointer',
-                backdropFilter: 'blur(4px)',
-                letterSpacing: 0.4,
+                background: 'rgba(255,255,255,.18)', color: '#fff',
+                fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                backdropFilter: 'blur(4px)', letterSpacing: 0.4,
                 boxShadow: '0 2px 10px rgba(0,0,0,.25)',
               }}
             >
@@ -283,8 +319,8 @@ function CorteCard({ notas, gastos, srRows = [], unlocked = false, onUnlockClick
         )}
       </div>
 
-      {/* Footer bar */}
-      <div style={{ position: 'relative', zIndex: 1, borderTop: '1px solid rgba(255,255,255,.1)', padding: '7px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+      {/* Footer */}
+      <div style={{ position: 'relative', zIndex: 1, borderTop: '1px solid rgba(255,255,255,.08)', padding: '6px 16px', textAlign: 'center' }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: positivo ? 'rgba(110,231,183,.7)' : 'rgba(252,165,165,.7)' }}>
           {positivo ? '✓ Vas muy bien esta semana' : '⚠ Los gastos superan los ingresos'}
         </span>

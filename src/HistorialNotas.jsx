@@ -430,7 +430,7 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 14, color: '#1a1a22', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
           <ArrowLeft size={16} strokeWidth={2.5} /> Volver
         </button>
-        <span style={{ fontWeight: 800, fontSize: 15, color: HEAD_INK }}>Registro de Notas</span>
+        <span style={{ fontWeight: 800, fontSize: 15, color: HEAD_INK }}>Historial de Notas</span>
         <div style={{ width: 70 }} />
       </div>
 
@@ -441,7 +441,7 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
           {/* Toolbar */}
           <div className="hist-toolbar" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: -.2, color: HEAD_INK }}>Registro de Notas</h1>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: -.2, color: HEAD_INK }}>Historial de Notas</h1>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#888' }}>
                 {filteredNotas.length} nota{filteredNotas.length !== 1 ? 's' : ''}
               </span>

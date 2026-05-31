@@ -176,7 +176,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], o
             <ArrowLeft size={18} strokeWidth={2.5} />
             Volver
           </button>
-          <span className="font-display font-bold text-ink text-base">Concentrado de Ingresos</span>
+          <span className="font-display font-bold text-ink text-sm" style={{ whiteSpace: 'nowrap' }}>Concentrado de Ingresos</span>
         </div>
         <button
           onClick={exportarExcel}

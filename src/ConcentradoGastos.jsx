@@ -230,7 +230,7 @@ export default function ConcentradoGastos({ gastos, srRows = [], onSave, onBack 
           <button onClick={onBack} className="flex items-center gap-2 text-ink font-bold text-sm">
             <ArrowLeft size={18} strokeWidth={2.5} /> Volver
           </button>
-          <span className="font-display font-bold text-ink text-base">Concentrado de Gastos</span>
+          <span className="font-display font-bold text-ink text-sm" style={{ whiteSpace: 'nowrap' }}>Concentrado de Gastos</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
