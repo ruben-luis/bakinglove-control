@@ -6,6 +6,7 @@ import HistorialNotas from './HistorialNotas'
 import ConcentradoIngresos from './ConcentradoIngresos'
 import ConcentradoGastos from './ConcentradoGastos'
 import CalendarioEntregas from './CalendarioEntregas'
+import SanRamonView from './SanRamonView'
 import PinModal, { savePin } from './PinModal'
 
 function loadNotas() {
@@ -96,6 +97,8 @@ export default function App() {
     content = <ConcentradoGastos gastos={gastos} srRows={srRows} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} />
+  } else if (view === 'sanramon') {
+    content = <SanRamonView onBack={() => setView('dashboard')} onSrChange={setSrRows} />
   } else {
     content = (
       <Dashboard

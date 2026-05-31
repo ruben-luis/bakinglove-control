@@ -5,10 +5,9 @@ import {
   Plus, Pencil, ArrowRight, Calendar,
   CakeSlice, Cookie, Candy, IceCreamCone,
   Croissant, Cherry, Cake, Coffee, ClipboardList,
-  Lock, KeyRound,
+  Lock, KeyRound, Store,
 } from 'lucide-react'
 import PinModal from './PinModal'
-import SanRamonCard from './SanRamonCard'
 
 // ═══════════════════════════════════════════════════════════════
 // ÍCONOS FLOTANTES DE FONDO
@@ -385,9 +384,10 @@ const buildModules = (onNavigate) => [
     ],
     onOpen: () => onNavigate('nota'),
   },
-  { title: 'Concentrado de Ingresos', icon: TrendingUp,   accent: 'mint',  desc: 'Visualiza tus entradas por periodo.',        onOpen: () => onNavigate('concentrado') },
-  { title: 'Concentrado de Gastos',   icon: TrendingDown, accent: 'sky',   desc: 'Controla insumos y costos de operación.',    onOpen: () => onNavigate('gastos') },
-  { title: 'Calendario de Entregas',  icon: CalendarDays, accent: 'lilac', desc: 'Organiza tus pedidos por fecha de entrega.', onOpen: () => onNavigate('calendario') },
+  { title: 'Concentrado de Ingresos', icon: TrendingUp,   accent: 'mint',  desc: 'Visualiza tus entradas por periodo.',          onOpen: () => onNavigate('concentrado') },
+  { title: 'Concentrado de Gastos',   icon: TrendingDown, accent: 'sky',   desc: 'Controla insumos y costos de operación.',      onOpen: () => onNavigate('gastos') },
+  { title: 'Calendario de Entregas',  icon: CalendarDays, accent: 'lilac', desc: 'Organiza tus pedidos por fecha de entrega.',   onOpen: () => onNavigate('calendario') },
+  { title: 'Control San Ramón',       icon: Store,        accent: 'pink',  desc: 'Registro de ventas y salidas de la sucursal.', onOpen: () => onNavigate('sanramon') },
 ]
 
 // ═══════════════════════════════════════════════════════════════
@@ -416,8 +416,6 @@ export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = 
           unlocked={corteUnlocked}
           onUnlockClick={() => setShowCortePin(true)}
         />
-
-        <SanRamonCard onSrChange={onSrChange} />
 
         <main className="grid grid-cols-1 sm:grid-cols-2 gap-5 px-1">
           {modules.map((m, i) => (
