@@ -290,11 +290,15 @@ function CorteCard({ notas, gastos, srRows = [], unlocked = false, onUnlockClick
           </div>
 
           {/* ── Total general ───────────────────────────────── */}
-          <div style={{ borderTop: '1px solid rgba(255,255,255,.12)', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
-            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase' }}>Total general</span>
-            <span style={{ fontSize: 15, fontWeight: 900, color: positivo ? '#fde68a' : '#fca5a5', fontVariantNumeric: 'tabular-nums' }}>
-              {totalTienes < 0 ? '-' : ''}${Math.abs(totalTienes).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
+          <div style={{ borderTop: '2px solid rgba(255,255,255,.18)' }}>
+            <SectionLabel color="rgba(255,255,255,.5)">◆ Total general</SectionLabel>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr' }}>
+              <StatBox label="Total ganado"  amount={bklGanaste + srVentas}  color="#6ee7b7" />
+              {sep}
+              <StatBox label="Total gastado" amount={bklGastaste + srSalidas} color="#fca5a5" />
+              {sep}
+              <StatBox label="Total tienes"  amount={totalTienes} color={positivo ? '#fde68a' : '#fca5a5'} isNeg />
+            </div>
           </div>
         </div>
 
