@@ -47,7 +47,7 @@ export async function printNota({
   const logoSrc = await getLogo()
 
   const logoHTML = logoSrc
-    ? `<img src="${logoSrc}" alt="Bakinglove" style="width:52px;height:auto;object-fit:contain;flex-shrink:0;">`
+    ? `<img src="${logoSrc}" alt="Bakinglove" style="width:100px;height:auto;object-fit:contain;flex-shrink:0;">`
     : `<span style="font-size:14pt;font-style:italic;color:#d9748f;font-weight:800;">Bakinglove</span>`
 
   // ── Filas de productos (solo las que tienen descripción) ───
@@ -111,8 +111,8 @@ export async function printNota({
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
 
-  /* ── Página ¼ de A4 (A6) ── */
-  @page{size:105mm 148mm;margin:0;}
+  /* ── Media hoja A4, altura automática según contenido ── */
+  @page{size:A4 portrait;margin:0;}
   html,body{
     font-family:"Plus Jakarta Sans",Arial,sans-serif;
     color:#2b2731;background:#fff;
@@ -121,93 +121,92 @@ export async function printNota({
   }
 
   .half{
-    width:105mm;
-    min-height:148mm;
-    padding:3mm 5mm 3mm;
+    width:210mm;
+    padding:5mm 9mm 6mm;
     display:flex;
     flex-direction:column;
-    gap:1mm;
+    gap:1.4mm;
   }
 
   /* ── Encabezado ── */
-  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:3mm;}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:8mm;}
   h1{
-    font-size:11pt;font-weight:800;text-transform:uppercase;
-    line-height:.95;letter-spacing:-.3px;color:#111018;flex-shrink:0;
+    font-size:20pt;font-weight:800;text-transform:uppercase;
+    line-height:.95;letter-spacing:-.5px;color:#111018;flex-shrink:0;
   }
 
   /* ── Folio + contacto ── */
-  .toprow{display:flex;gap:3mm;align-items:flex-start;flex-wrap:wrap;}
+  .toprow{display:flex;gap:6mm;align-items:flex-start;flex-wrap:wrap;}
   .folio-bar{
     display:inline-flex;align-items:stretch;
-    border:1px solid #c9c9d0;border-radius:3px;overflow:hidden;
-    height:6mm;flex-shrink:0;
+    border:1px solid #c9c9d0;border-radius:4px;overflow:hidden;
+    height:8.5mm;flex-shrink:0;
   }
   .folio-bar .fl{
-    background:#e4e4e8;font-weight:700;font-size:6pt;
-    display:flex;align-items:center;padding:0 2mm;letter-spacing:.3px;white-space:nowrap;
+    background:#e4e4e8;font-weight:700;font-size:8pt;
+    display:flex;align-items:center;padding:0 4mm;letter-spacing:.4px;white-space:nowrap;
   }
   .folio-bar .fv{
-    display:flex;align-items:center;padding:0 3mm;
-    color:#2f5fb0;font-weight:800;font-size:10pt;letter-spacing:.2px;white-space:nowrap;
+    display:flex;align-items:center;padding:0 5mm;
+    color:#2f5fb0;font-weight:800;font-size:14pt;letter-spacing:.3px;white-space:nowrap;
   }
-  .contact{font-size:6pt;line-height:1.55;color:#1a1a22;}
+  .contact{font-size:7.5pt;line-height:1.65;color:#1a1a22;}
   .contact b{font-weight:700;}
-  .cline{display:flex;align-items:center;gap:1.5mm;}
-  .cline+.cline{margin-top:.5mm;}
+  .cline{display:flex;align-items:center;gap:2.5mm;}
+  .cline+.cline{margin-top:.8mm;}
   .ico-circle{
-    width:3mm;height:3mm;border:1px solid #1f2b5e;border-radius:50%;
+    width:4mm;height:4mm;border:1.5px solid #1f2b5e;border-radius:50%;
     display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    font-size:4pt;line-height:1;
+    font-size:5.5pt;line-height:1;
   }
-  .ico-pin{color:#d9748f;font-size:7pt;flex-shrink:0;line-height:1;}
+  .ico-pin{color:#d9748f;font-size:9pt;flex-shrink:0;line-height:1;}
 
   /* ── Tabla de campos ── */
   table{border-collapse:collapse;width:100%;}
-  .fields td{border:1px solid #c9c9d0;height:4.5mm;font-size:6.5pt;vertical-align:middle;}
-  .fields .lb{background:#e4e4e8;font-weight:700;padding:0 1.5mm;white-space:nowrap;width:1%;}
-  .fields .vl{padding:0 1.5mm;}
+  .fields td{border:1px solid #c9c9d0;height:5.8mm;font-size:8pt;vertical-align:middle;}
+  .fields .lb{background:#e4e4e8;font-weight:700;padding:0 2.5mm;white-space:nowrap;width:1%;}
+  .fields .vl{padding:0 2.5mm;}
   .fields .pk{background:#fbe0ea;}
 
   /* ── Tags ── */
-  .tags{display:flex;gap:3px;}
+  .tags{display:flex;gap:5px;}
   .tag{
-    border:1px solid #c9c9d0;border-radius:3px;
-    height:5mm;display:inline-flex;align-items:center;
-    padding:0 2mm;font-size:6pt;font-weight:700;letter-spacing:.3px;
+    border:1px solid #c9c9d0;border-radius:4px;
+    height:6.5mm;display:inline-flex;align-items:center;
+    padding:0 3mm;font-size:8pt;font-weight:700;letter-spacing:.4px;
   }
   .tag.bh{color:#d9748f;}
   .tag.bh.active{background:#fbe0ea;border-color:#f4a0be;font-weight:800;}
   .tag.sr{background:#d9efd2;color:#5d8a49;border-color:#bfe0b4;}
-  .tag.sr.active{font-weight:800;outline:1.5px solid #5d8a49;outline-offset:1px;}
+  .tag.sr.active{font-weight:800;outline:2px solid #5d8a49;outline-offset:1px;}
   .tag.dim{background:#fff!important;color:#ccc!important;border-color:#eee!important;}
 
   /* ── Cabecera gris de sección ── */
   .barhead{
     background:#e4e4e8;text-align:center;font-weight:800;
-    font-size:6.5pt;letter-spacing:.8px;padding:1.5px;
+    font-size:9pt;letter-spacing:1px;padding:2px;
     border:1px solid #c9c9d0;
   }
 
   /* ── Tablas de datos ── */
   .dt{border:1px solid #1f2b5e;}
   .dt thead th{
-    background:#FBE0E8;color:#2b2731;font-size:6pt;font-weight:700;
-    padding:1.5px 3px;border-right:1px solid rgba(217,116,143,.25);
+    background:#FBE0E8;color:#2b2731;font-size:7.5pt;font-weight:700;
+    padding:2.5px 4px;border-right:1px solid rgba(217,116,143,.25);
     text-align:left;white-space:nowrap;
   }
   .dt td{
-    border:1px solid #c9c9d0;padding:0 3px;
-    height:5mm;font-size:6.5pt;vertical-align:middle;
+    border:1px solid #c9c9d0;padding:0 4px;
+    height:6.5mm;font-size:8pt;vertical-align:middle;
   }
   .dt .c{text-align:center;font-weight:700;}
   .dt .r{text-align:right;color:#888;font-weight:700;}
   .dt tfoot td{font-weight:800;}
 
   /* ── Totales ── */
-  .tots{border-collapse:collapse;width:60%;}
-  .tots td{border:1px solid #c9c9d0;height:5mm;padding:0 2mm;font-size:7.5pt;vertical-align:middle;}
-  .tots .tk{font-weight:800;letter-spacing:.3px;}
+  .tots{border-collapse:collapse;width:52%;}
+  .tots td{border:1px solid #c9c9d0;height:6.5mm;padding:0 3mm;font-size:9pt;vertical-align:middle;}
+  .tots .tk{font-weight:800;letter-spacing:.4px;}
   .tots .tv{text-align:right;font-weight:700;color:#444;}
 
 </style>
