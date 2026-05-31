@@ -77,13 +77,15 @@ export async function printNota({
     '<tr><td class="c" style="width:6mm;max-width:6mm;">' + (i + 1) + '</td><td>' + esc(o) + '</td></tr>'
   ).join('')
 
-  // ── Filas de pagos ──────────────────────────────────────────
-  const pagoRows = pagos.map((p, i) =>
+  // ── Filas de pagos (solo llenas, mínimo 1 vacía) ───────────
+  const filledPagos = pagos.filter(p => p.monto)
+  const pagosToRender = filledPagos.length > 0 ? filledPagos : [null]
+  const pagoRows = pagosToRender.map((p, i) =>
     '<tr>' +
       `<td class="c">${i + 1}</td>` +
-      `<td>${p.monto ? fmtMoney(p.monto) : ''}</td>` +
-      `<td>${fmtDate(p.fecha)}</td>` +
-      `<td>${esc(p.met)}</td>` +
+      `<td>${p && p.monto ? fmtMoney(p.monto) : ''}</td>` +
+      `<td>${p ? fmtDate(p.fecha) : ''}</td>` +
+      `<td>${p ? esc(p.met || '') : ''}</td>` +
     '</tr>'
   ).join('')
 
