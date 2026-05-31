@@ -413,42 +413,6 @@ export default function NotaDeVenta({ onBack, onSave }) {
             </tbody>
           </table>
 
-          {/* ── Línea de corte ── */}
-          <hr style={{ border: 'none', borderTop: '2px dashed #b9b9c2', margin: '26px 0 18px' }} />
-
-          {/* ── Copia: Folio ── */}
-          <div className="nota-folio-copy" style={{ display: 'flex', alignItems: 'stretch', border: `1px solid ${GRAY_LINE}`, borderRadius: 4, overflow: 'hidden', height: 38, width: '60%', marginBottom: 14, flexShrink: 0 }}>
-            <span style={{ background: GRAY, fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', padding: '0 14px', letterSpacing: 0.5, flexShrink: 0 }}>FOLIO</span>
-            <span style={{ display: 'flex', alignItems: 'center', padding: '0 14px', color: BLUE, fontWeight: 800, fontSize: 20, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{folio}</span>
-          </div>
-
-          {/* ── Copia: PAGOS ── */}
-          <div>
-            <BarHead label="PAGOS" />
-            <div className="nota-scroll">
-            <table style={DT}>
-              <thead>
-                <NavyTH cols={[{ label: 'N°', width: 36 }, { label: 'MONTO' }, { label: 'FECHA' }, { label: 'METODO DE PAGO' }]} />
-              </thead>
-              <tbody>
-                {pagos.map((p, i) => (
-                  <tr key={i}>
-                    <td style={TD({ width: 36, textAlign: 'center', fontWeight: 700, fontSize: 15 })}>{i + 1}</td>
-                    <td style={TD({ color: '#444', fontWeight: 700 })}>
-                      {p.monto ? dash(parseFloat(p.monto)) : ''}
-                    </td>
-                    <td style={TD({ color: '#444', fontSize: 12, whiteSpace: 'nowrap' })}>
-                      {p.fecha ? p.fecha.slice(5).replace('-', '/') : ''}
-                    </td>
-                    <td style={{ border: `1px solid ${GRAY_LINE}`, padding: 0, height: 42 }}>
-                      <MethodPicker value={p.met} onChange={v => updG(i, 'met', v)} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
 
         </div>
       </div>

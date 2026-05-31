@@ -9,6 +9,15 @@ function fmtDate(iso) {
   return iso ? iso.split('-').reverse().join('/') : ''
 }
 
+const DIAS_PDF  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
+const MESES_PDF = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+function fmtDateES(iso) {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return `${DIAS_PDF[dt.getDay()]} ${d} de ${MESES_PDF[m - 1]} del ${y}`
+}
+
 function fmtMoney(n) {
   const num = Number(n) || 0
   return num > 0
@@ -41,26 +50,30 @@ export async function printNota({
     ? `<img src="${logoSrc}" alt="Bakinglove" style="width:100px;height:auto;object-fit:contain;flex-shrink:0;">`
     : `<span style="font-size:14pt;font-style:italic;color:#d9748f;font-weight:800;">Bakinglove</span>`
 
-  // ── Filas de productos ──────────────────────────────────────
-  const prodRows = prods.map(p => {
-    const sub = (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0)
-    return (
-      '<tr>' +
-        `<td class="c">${esc(p.cantidad)}</td>` +
-        `<td>${esc(p.descripcion)}</td>` +
-        `<td class="c">${p.precioU ? fmtMoney(p.precioU) : ''}</td>` +
-        `<td class="r">${sub > 0 ? fmtMoney(sub) : '-'}</td>` +
-      '</tr>'
-    )
-  }).join('')
+  // ── Filas de productos (solo las que tienen descripción) ───
+  const prodRows = prods
+    .filter(p => p.descripcion && String(p.descripcion).trim())
+    .map(p => {
+      const sub = (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0)
+      return (
+        '<tr>' +
+          `<td class="c">${esc(p.cantidad)}</td>` +
+          `<td>${esc(p.descripcion)}</td>` +
+          `<td class="c">${p.precioU ? fmtMoney(p.precioU) : ''}</td>` +
+          `<td class="r">${sub > 0 ? fmtMoney(sub) : '-'}</td>` +
+        '</tr>'
+      )
+    }).join('')
 
   const entregaRow = costoEntrega > 0
     ? '<tr><td colspan="2"></td><td style="text-align:right;font-size:7.5pt;color:#888;">+ Entrega</td>' +
       '<td class="r">' + fmtMoney(costoEntrega) + '</td></tr>'
     : ''
 
-  // ── Filas de observaciones ──────────────────────────────────
-  const obsRows = obs.map((o, i) =>
+  // ── Filas de observaciones (solo llenas, mínimo 1 vacía) ───
+  const filledObs = obs.filter(o => o && String(o).trim())
+  const obsToRender = filledObs.length > 0 ? filledObs : ['']
+  const obsRows = obsToRender.map((o, i) =>
     '<tr><td class="c" style="width:7mm;max-width:7mm;">' + (i + 1) + '</td><td>' + esc(o) + '</td></tr>'
   ).join('')
 
@@ -239,7 +252,7 @@ export async function printNota({
   <table class="fields">
     <tr>
       <td class="lb">Fecha de Entrega</td>
-      <td class="vl pk" colspan="3">${fmtDate(fecha)}</td>
+      <td class="vl pk" colspan="3">${fmtDateES(fecha)}</td>
     </tr>
     <tr>
       <td class="lb">Cliente</td>
