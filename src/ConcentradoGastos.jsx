@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Trash2, Sheet } from 'lucide-react'
+import { exportarExcel } from './exportExcel'
 
 const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DIAS    = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
@@ -217,9 +218,29 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
           </button>
           <span className="font-display font-bold text-ink text-base">Concentrado de Gastos</span>
         </div>
-        <button onClick={guardar} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${saved ? 'bg-green-600 text-white' : 'bg-[#1f2b5e] text-white'}`}>
-          {saved ? '✓ Guardado' : 'Guardar'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={exportarExcel}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px', borderRadius: 12,
+              border: '2px solid #1a6b3c',
+              background: '#22a05a', color: '#fff',
+              fontSize: 12, fontWeight: 800,
+              cursor: 'pointer', boxShadow: '3px 3px 0 #1a6b3c',
+              whiteSpace: 'nowrap',
+            }}
+            onPointerDown={e => { e.currentTarget.style.transform = 'translate(2px,2px)'; e.currentTarget.style.boxShadow = '1px 1px 0 #1a6b3c' }}
+            onPointerUp={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '3px 3px 0 #1a6b3c' }}
+            onPointerLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '3px 3px 0 #1a6b3c' }}
+          >
+            <Sheet size={14} strokeWidth={2.5} />
+            Excel
+          </button>
+          <button onClick={guardar} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${saved ? 'bg-green-600 text-white' : 'bg-[#1f2b5e] text-white'}`}>
+            {saved ? '✓ Guardado' : 'Guardar'}
+          </button>
+        </div>
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-5 space-y-4">
