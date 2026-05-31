@@ -136,38 +136,40 @@ export default function SanRamonView({ onBack, onSrChange }) {
 
       {/* ── Nav bar ──────────────────────────────────────────────── */}
       <div className="sticky top-0 z-20 bg-cream/95 backdrop-blur-sm border-b-2 border-ink shadow-hard-sm">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={onBack} className="flex items-center gap-2 text-ink font-bold text-sm">
-              <ArrowLeft size={18} strokeWidth={2.5} />
-              Volver
-            </button>
-            <div style={{ width: 1, height: 20, background: '#2b273122' }} />
-            <div>
-              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, color: '#2b273160', textTransform: 'uppercase' }}>Control Sucursal</div>
-              <div style={{ fontSize: 15, fontWeight: 900, color: NAVY, letterSpacing: 0.2, lineHeight: 1.1 }}>San Ramón</div>
-            </div>
+        {/* Row 1: back + title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px 6px' }}>
+          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#2b2731', padding: 0 }}>
+            <ArrowLeft size={17} strokeWidth={2.5} />
+            Volver
+          </button>
+          <div style={{ width: 1, height: 18, background: '#2b273122' }} />
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 2, color: '#2b273155', textTransform: 'uppercase' }}>Control Sucursal</div>
+            <div style={{ fontSize: 14, fontWeight: 900, color: NAVY, letterSpacing: 0.2, lineHeight: 1.1 }}>San Ramón</div>
           </div>
+        </div>
 
-          {/* Day navigation */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <button onClick={prevDay} style={{ border: '2px solid #2b2731', borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', background: '#fff', cursor: 'pointer' }}>
-              <ChevronLeft size={14} strokeWidth={2.5} />
+        {/* Row 2: day navigation full-width */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '4px 16px 10px' }}>
+          <button onClick={prevDay} style={{ border: '2px solid #2b2731', borderRadius: '50%', width: 30, height: 30, display: 'grid', placeItems: 'center', background: '#fff', cursor: 'pointer', flexShrink: 0 }}>
+            <ChevronLeft size={15} strokeWidth={2.5} />
+          </button>
+
+          <label style={{ position: 'relative', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: isDiaHoy ? NAVY : '#2b2731', padding: '6px 18px', border: `2px solid ${isDiaHoy ? NAVY : '#2b2731'}`, borderRadius: 22, background: isDiaHoy ? '#eef1fb' : '#fff', display: 'inline-block', userSelect: 'none', whiteSpace: 'nowrap', textAlign: 'center', flex: 1, maxWidth: 260 }}>
+            {isDiaHoy ? '📅 Hoy' : labelDia(filterDate)}
+            <input type="date" value={filterDate} onChange={e => switchDate(e.target.value)}
+              style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
+          </label>
+
+          <button onClick={nextDay} style={{ border: '2px solid #2b2731', borderRadius: '50%', width: 30, height: 30, display: 'grid', placeItems: 'center', background: '#fff', cursor: 'pointer', flexShrink: 0 }}>
+            <ChevronRight size={15} strokeWidth={2.5} />
+          </button>
+
+          {!isDiaHoy && (
+            <button onClick={() => switchDate(todayISO())} style={{ fontSize: 11, fontWeight: 700, padding: '5px 11px', border: `2px solid ${NAVY}`, borderRadius: 14, background: NAVY, color: '#fff', cursor: 'pointer', flexShrink: 0 }}>
+              Hoy
             </button>
-            <label style={{ position: 'relative', cursor: 'pointer', fontWeight: 700, fontSize: 12, color: isDiaHoy ? NAVY : '#2b2731', padding: '5px 14px', border: '2px solid #2b2731', borderRadius: 20, background: '#fff', display: 'inline-block', userSelect: 'none', whiteSpace: 'nowrap' }}>
-              {labelDia(filterDate)}
-              <input type="date" value={filterDate} onChange={e => switchDate(e.target.value)}
-                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
-            </label>
-            <button onClick={nextDay} style={{ border: '2px solid #2b2731', borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', background: '#fff', cursor: 'pointer' }}>
-              <ChevronRight size={14} strokeWidth={2.5} />
-            </button>
-            {!isDiaHoy && (
-              <button onClick={() => switchDate(todayISO())} style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', border: `2px solid ${NAVY}`, borderRadius: 14, background: NAVY, color: '#fff', cursor: 'pointer' }}>
-                Hoy
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -181,29 +183,25 @@ export default function SanRamonView({ onBack, onSrChange }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
             {/* Saldo Inicial */}
-            <div style={{ display: 'flex', alignItems: 'stretch', borderRight: `1px solid ${LINE_SOFT}` }}>
-              <span style={{ background: '#e4e4e8', fontWeight: 700, fontSize: 11, letterSpacing: 0.5, display: 'flex', alignItems: 'center', padding: '0 14px', whiteSpace: 'nowrap', borderRight: `1px solid ${LINE}` }}>
-                SALDO INICIAL
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', flex: 1, gap: 4, height: 42 }}>
-                <span style={{ color: '#9a9aa3', fontWeight: 700 }}>$</span>
+            <div style={{ borderRight: `1px solid ${LINE_SOFT}`, padding: '10px 14px' }}>
+              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, color: '#9a9aa3', marginBottom: 4 }}>SALDO INICIAL</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ color: '#9a9aa3', fontWeight: 700, fontSize: 14 }}>$</span>
                 <input
                   type="text" value={saldoIni}
                   onChange={e => setSaldoIni(e.target.value)}
                   onBlur={handleSaldoBlur}
                   placeholder="0.00"
-                  style={{ border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: '#1a51c4', width: '100%' }}
+                  style={{ border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 16, fontWeight: 700, color: '#1a51c4', width: '100%', minWidth: 0 }}
                 />
               </div>
             </div>
             {/* Saldo Final */}
-            <div style={{ display: 'flex', alignItems: 'stretch' }}>
-              <span style={{ background: '#e4e4e8', fontWeight: 700, fontSize: 11, letterSpacing: 0.5, display: 'flex', alignItems: 'center', padding: '0 14px', whiteSpace: 'nowrap', borderRight: `1px solid ${LINE}` }}>
-                SALDO FINAL
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', height: 42, gap: 4 }}>
-                <span style={{ color: '#9a9aa3', fontWeight: 700 }}>$</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: saldoFinal >= 0 ? '#1a51c4' : SALIDA_TX }}>
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, color: '#9a9aa3', marginBottom: 4 }}>SALDO FINAL</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ color: '#9a9aa3', fontWeight: 700, fontSize: 14 }}>$</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: saldoFinal >= 0 ? '#1a51c4' : SALIDA_TX }}>
                   {fmt(saldoFinal)}
                 </span>
               </div>
