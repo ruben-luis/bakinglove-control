@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { ArrowLeft, FileDown, ChevronDown, X, Plus, Save, Trash2 } from 'lucide-react'
 import { printNota } from './printNota'
 
@@ -497,8 +497,8 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
               </thead>
               <tbody>
                 {groups.map(({ day, notas: grupoNotas }) => (
-                  <>
-                    <tr key={`sep-${day}`}>
+                  <Fragment key={day}>
+                    <tr>
                       <td colSpan={6} style={{ background: NAVY, color: '#fff', fontWeight: 800, fontSize: 11, letterSpacing: 1, padding: '5px 12px', textTransform: 'uppercase', border: `1px solid ${NAVY}` }}>
                         {labelFecha(grupoNotas[0].createdAt)}
                       </td>
@@ -525,7 +525,7 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
                         </td>
                       </tr>
                     ))}
-                  </>
+                  </Fragment>
                 ))}
                 {filteredNotas.length === 0 && (
                   <tr>
