@@ -44,43 +44,58 @@ export function exportarExcel() {
   const wb = XLSX.utils.book_new()
 
   // ── Hoja 1: INGRESOS ──────────────────────────────────────────
+
+  // Cuántos pagos tiene como máximo una sola nota (mínimo 1 columna)
+  const maxPagos = Math.max(1, ...notas.map(n =>
+    (n.pagos || []).filter(p => p.monto).length
+  ))
+
   const ingHead = [
     'Folio', 'Fecha Registro', 'Fecha Entrega', 'Cliente', 'Contacto',
-    'Productos', 'Total Pedido', 'Total Pagado', 'Restante', 'Formas de Pago',
+    'Productos', 'Total Pedido', 'Total Pagado', 'Restante',
+    ...Array.from({ length: maxPagos }, (_, i) =>
+      maxPagos === 1 ? 'Forma de Pago' : `Pago ${i + 1}`
+    ),
   ]
 
-  const ingRows = [...notas]
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-    .map(n => {
-      const prods = (n.productos || [])
-        .filter(p => p.descripcion)
-        .map(p => `${p.cantidad ? p.cantidad + 'x ' : ''}${p.descripcion}`)
-        .join(' | ')
-      const pagos = (n.pagos || [])
-        .filter(p => p.monto)
-        .map(p => `${p.metodoPago || ''}: $${Number(p.monto).toFixed(2)}`)
-        .join(' | ')
-      const totalPedido = num(n.totalPedido)
-      const totalPagado = num(n.totalPagado)
-      const resta = num(n.resta ?? (totalPedido - totalPagado))
-      return [
-        n.folio || '',
-        n.createdAt ? new Date(n.createdAt).toLocaleDateString('es-MX') : '',
-        n.fecha || n.fechaEntrega || '',
-        n.cliente || '',
-        n.contacto || '',
-        prods,
-        totalPedido,
-        totalPagado,
-        resta,
-        pagos,
-      ]
-    })
+  const sortedNotas = [...notas].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+
+  const ingRows = sortedNotas.map(n => {
+    const prods = (n.productos || [])
+      .filter(p => p.descripcion)
+      .map(p => `${p.cantidad ? p.cantidad + 'x ' : ''}${p.descripcion}`)
+      .join(' | ')
+
+    const pagosArr = (n.pagos || [])
+      .filter(p => p.monto)
+      .map(p => `${p.metodoPago || ''}: $${Number(p.monto).toFixed(2)}`)
+
+    // Rellenar con vacíos hasta llegar al máximo de columnas
+    while (pagosArr.length < maxPagos) pagosArr.push('')
+
+    const totalPedido = num(n.totalPedido)
+    const totalPagado = num(n.totalPagado)
+    const resta       = num(n.resta ?? (totalPedido - totalPagado))
+
+    return [
+      n.folio || '',
+      n.createdAt ? new Date(n.createdAt).toLocaleDateString('es-MX') : '',
+      n.fecha || n.fechaEntrega || '',
+      n.cliente || '',
+      n.contacto || '',
+      prods,
+      totalPedido,
+      totalPagado,
+      resta,
+      ...pagosArr,
+    ]
+  })
 
   const wsIng = XLSX.utils.aoa_to_sheet([ingHead, ...ingRows])
   wsIng['!cols'] = [
     { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 16 },
-    { wch: 42 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 32 },
+    { wch: 42 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+    ...Array.from({ length: maxPagos }, () => ({ wch: 26 })),
   ]
   if (ingRows.length) applyMoneyFmt(wsIng, ['G', 'H', 'I'], 2, ingRows.length + 1)
   XLSX.utils.book_append_sheet(wb, wsIng, 'Ingresos')
