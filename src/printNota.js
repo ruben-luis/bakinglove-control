@@ -239,13 +239,6 @@ export async function printNota({
     border-top:1px dashed #ccc;border-bottom:1px dashed #ccc;
   }
 
-  /* Etiqueta NEGOCIO / CLIENTE */
-  .copy-lbl{
-    margin-top:auto;text-align:right;
-    font-size:5.5pt;font-weight:700;letter-spacing:1.5px;color:#bbb;
-    padding-top:.8mm;
-  }
-
   /* ── Encabezado ── */
   .head{display:flex;align-items:flex-start;justify-content:space-between;gap:6mm;}
   h1{
@@ -331,20 +324,11 @@ export async function printNota({
 </head>
 <body>
 
-<!-- ═══════════════ MITAD SUPERIOR — NEGOCIO ═══════════════ -->
 <div class="half">
   ${notaBody}
-  <div class="copy-lbl">NEGOCIO</div>
 </div>
 
-<!-- Línea de corte -->
 <div class="cut">· · · · · · · · ✂ · · · · · · · · · · · · · · · · · · ✂ · · · · · · · ·</div>
-
-<!-- ═══════════════ MITAD INFERIOR — CLIENTE ═══════════════ -->
-<div class="half">
-  ${notaBody}
-  <div class="copy-lbl">CLIENTE</div>
-</div>
 
 <script>
   document.fonts.ready.then(function() { window.print() })
