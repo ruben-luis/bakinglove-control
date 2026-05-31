@@ -64,7 +64,7 @@ function labelDia(isoStr) {
 
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 
-export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
+export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], onBack }) {
   const now  = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [filterDate, setFilterDate] = useState(todayISO)
@@ -92,6 +92,14 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
     return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
   })
 
+  // SR ventas del mes y del día
+  const srVentasMes = (srRows || []).filter(r => {
+    if (r.tipo !== 'venta') return false
+    const d = new Date(r.fecha + 'T12:00:00')
+    return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
+  })
+  const srVentasDia = srVentasMes.filter(r => r.fecha === filterDate)
+
   // Acumulado de ingresos por método
   const acum = { Terminal: 0, Transferencia: 0, Efectivo: 0 }
   notasMes.forEach(n => {
@@ -100,6 +108,12 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
         acum[p.metodoPago] += parseFloat(p.monto) || 0
       }
     })
+  })
+  // SR ventas al acumulado
+  srVentasMes.forEach(r => {
+    const m = parseFloat(r.precio) || 0
+    if (r.metodo === 'Banco') acum.Terminal += m
+    else if (r.metodo === 'Efectivo') acum.Efectivo += m
   })
 
   // Acumulado de gastos por método
@@ -129,7 +143,8 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
   const prevWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d) }
   const nextWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d) }
 
-  const rows = notasDia.map((n, i) => ({ idx: i + 1, nota: n }))
+  const rows = notasDia.map((n, i) => ({ idx: i + 1, nota: n, type: 'nota' }))
+  const srRows2 = srVentasDia.map((r, i) => ({ idx: rows.length + i + 1, sr: r, type: 'sr' }))
 
   const folioPH = `BL${String(refDate.getFullYear()).slice(2)}${String(refDate.getMonth()+1).padStart(2,'0')}`
 
@@ -337,6 +352,38 @@ export default function ConcentradoIngresos({ notas, gastos = [], onBack }) {
                     </tr>
                   )
                 })}
+                {/* Filas San Ramón */}
+                {srRows2.map(({ idx, sr }) => (
+                  <tr key={sr.id} style={{ background: 'rgba(217,239,210,.12)' }}>
+                    <td className="px-2 py-2.5 text-ink/50 border-r border-ink/10 font-semibold w-7">{idx}</td>
+                    <td className="px-2 py-2.5 text-ink border-r border-ink/10 whitespace-nowrap">{sr.fecha}</td>
+                    <td className="px-2 py-1.5 border-r border-ink/10">
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 8, background: '#d9efd2', color: '#5d8a49', fontSize: 9, fontWeight: 800, letterSpacing: 0.5 }}>
+                        SAN RAMÓN
+                      </span>
+                    </td>
+                    <td className="px-2 py-2.5 text-ink border-r border-ink/10" style={{ maxWidth: 180 }}>
+                      <span className="line-clamp-2 leading-tight">{sr.producto || '—'}</span>
+                    </td>
+                    <td className="px-2 py-2.5 border-r border-ink/10 font-bold text-ink whitespace-nowrap">
+                      {sr.precio ? fmtShort(parseFloat(sr.precio) || 0) : ''}
+                    </td>
+                    <td className="px-2 py-2.5 border-r border-ink/10 font-bold whitespace-nowrap" style={{ color: '#3d7a2a' }}>
+                      {sr.precio ? fmtShort(parseFloat(sr.precio) || 0) : ''}
+                    </td>
+                    <td className="px-2 py-2.5 border-r border-ink/10">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-mint-soft/60 text-green-700 border border-green-200">Pagado</span>
+                    </td>
+                    <td className="px-2 py-1.5 border-r border-ink/10">
+                      {sr.metodo && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-mint-soft/60 text-green-700">
+                          {sr.metodo}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-center text-ink/20 text-[9px]">—</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

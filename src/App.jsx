@@ -32,16 +32,15 @@ function saveGastos(gastos) {
   localStorage.setItem('bkl_gastos', JSON.stringify(gastos))
 }
 
-// pinAction values:
-//   null            – no modal
-//   'nav-concentrado' | 'nav-gastos' – navigate after verify
-//   'change-verify' – first step: verify current PIN
-//   'change-new'    – second step: enter new PIN
+function loadSrRows() {
+  try { return JSON.parse(localStorage.getItem('bkl_sanramon') || '[]') } catch { return [] }
+}
 
 export default function App() {
   const [view,      setView]      = useState('dashboard')
   const [notas,     setNotas]     = useState(loadNotas)
   const [gastos,    setGastos]    = useState(loadGastos)
+  const [srRows,    setSrRows]    = useState(loadSrRows)
   const [pinAction, setPinAction] = useState(null)
 
   const handleSaveNota = (nota) => {
@@ -68,7 +67,6 @@ export default function App() {
     saveGastos(updatedGastos)
   }
 
-  // Intercept protected destinations
   function navigate(dest) {
     if (dest === 'concentrado' || dest === 'gastos') {
       setPinAction('nav-' + dest)
@@ -78,18 +76,10 @@ export default function App() {
   }
 
   function handlePinSuccess(pin) {
-    if (pinAction === 'nav-concentrado') {
-      setView('concentrado')
-      setPinAction(null)
-    } else if (pinAction === 'nav-gastos') {
-      setView('gastos')
-      setPinAction(null)
-    } else if (pinAction === 'change-verify') {
-      setPinAction('change-new')
-    } else if (pinAction === 'change-new') {
-      savePin(pin)
-      setPinAction(null)
-    }
+    if (pinAction === 'nav-concentrado') { setView('concentrado'); setPinAction(null) }
+    else if (pinAction === 'nav-gastos') { setView('gastos'); setPinAction(null) }
+    else if (pinAction === 'change-verify') { setPinAction('change-new') }
+    else if (pinAction === 'change-new') { savePin(pin); setPinAction(null) }
   }
 
   const pinTitle = pinAction === 'change-new' ? 'Ingresa tu nuevo NIP' : 'Ingresa tu NIP'
@@ -101,9 +91,9 @@ export default function App() {
   } else if (view === 'historial') {
     content = <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
   } else if (view === 'concentrado') {
-    content = <ConcentradoIngresos notas={notas} gastos={gastos} onBack={() => setView('dashboard')} />
+    content = <ConcentradoIngresos notas={notas} gastos={gastos} srRows={srRows} onBack={() => setView('dashboard')} />
   } else if (view === 'gastos') {
-    content = <ConcentradoGastos gastos={gastos} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
+    content = <ConcentradoGastos gastos={gastos} srRows={srRows} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} />
   } else {
@@ -112,6 +102,8 @@ export default function App() {
         onNavigate={navigate}
         notas={notas}
         gastos={gastos}
+        srRows={srRows}
+        onSrChange={setSrRows}
         onChangePinRequest={() => setPinAction('change-verify')}
       />
     )

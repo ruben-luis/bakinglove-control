@@ -120,7 +120,7 @@ function SaldoRow({ label, value, last = false }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-export default function ConcentradoGastos({ gastos, onSave, onBack }) {
+export default function ConcentradoGastos({ gastos, srRows = [], onSave, onBack }) {
   const now = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [saved,      setSaved]      = useState(false)
@@ -188,6 +188,14 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  // SR salidas del mes y del día seleccionado
+  const srSalidasMes = (srRows || []).filter(r => {
+    if (r.tipo !== 'salida') return false
+    const d = new Date(r.fecha + 'T12:00:00')
+    return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
+  })
+  const srSalidasDia = srSalidasMes.filter(r => r.fecha === filterDate)
+
   // Acumulados
   const acumPago = { Tarjeta: 0, Transferencia: 0, Efectivo: 0 }
   const acumCat  = { Pasteleria: 0, Personal: 0 }
@@ -196,6 +204,12 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
     const m = parseFloat(r.monto) || 0
     if (r.formaPago && acumPago[r.formaPago] !== undefined) acumPago[r.formaPago] += m
     if (r.categoria && acumCat[r.categoria]  !== undefined) acumCat[r.categoria]  += m
+  })
+  // SR salidas al acumulado
+  srSalidasMes.forEach(r => {
+    const m = parseFloat(r.precio) || 0
+    if (r.metodo === 'Banco') acumPago.Tarjeta += m
+    else if (r.metodo === 'Efectivo') acumPago.Efectivo += m
   })
 
   const totalBancos   = acumPago.Tarjeta + acumPago.Transferencia
@@ -300,7 +314,7 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
                 </tr>
               </thead>
               <tbody>
-                {displayRows.length === 0 ? (
+                {displayRows.length === 0 && srSalidasDia.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ textAlign: 'center', color: '#bbb', fontSize: 11, padding: 20 }}>
                       Sin gastos para este día
@@ -338,6 +352,29 @@ export default function ConcentradoGastos({ gastos, onSave, onBack }) {
                         <Trash2 size={11} />
                       </button>
                     </td>
+                  </tr>
+                ))}
+                {/* Filas San Ramón (solo lectura) */}
+                {srSalidasDia.map((r, i) => (
+                  <tr key={r.id} style={{ background: 'rgba(251,224,234,.1)' }}>
+                    <td style={{ ...tdBase, textAlign: 'center', fontSize: 10, color: '#aaa', fontWeight: 600 }}>
+                      {displayRows.length + i + 1}
+                    </td>
+                    <td style={{ ...tdBase, padding: '0 6px', fontSize: 11, color: '#1a1a22' }}>{r.fecha}</td>
+                    <td style={{ ...tdBase, padding: '0 8px', fontSize: 12, color: '#1a1a22' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ padding: '1px 7px', borderRadius: 7, background: '#fbe0ea', color: '#d9748f', fontSize: 9, fontWeight: 800, letterSpacing: 0.4, flexShrink: 0 }}>SR</span>
+                        {r.producto || '—'}
+                      </div>
+                    </td>
+                    <td style={{ ...tdBase, padding: '0 8px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#1a1a22' }}>
+                      {r.precio ? `$${parseFloat(r.precio).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                    </td>
+                    <td style={{ ...tdBase, padding: '0 8px', background: 'rgba(251,224,234,.2)' }} data-colored="1">
+                      <span style={{ fontSize: 11, color: '#d9748f', fontWeight: 700 }}>{r.metodo || '—'}</span>
+                    </td>
+                    <td style={{ ...tdBase, padding: '0 8px', fontSize: 11, color: '#888' }}>San Ramón</td>
+                    <td style={{ ...tdBase, textAlign: 'center', color: '#ddd', fontSize: 10 }}>—</td>
                   </tr>
                 ))}
               </tbody>

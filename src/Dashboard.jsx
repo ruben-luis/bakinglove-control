@@ -8,6 +8,7 @@ import {
   Lock, KeyRound,
 } from 'lucide-react'
 import PinModal from './PinModal'
+import SanRamonCard from './SanRamonCard'
 
 // ═══════════════════════════════════════════════════════════════
 // ÍCONOS FLOTANTES DE FONDO
@@ -195,26 +196,27 @@ function StatBox({ label, amount, color, isNeg = false }) {
 // CORTE DE CAJA CARD
 // ═══════════════════════════════════════════════════════════════
 
-function CorteCard({ notas, gastos, unlocked = false, onUnlockClick }) {
+function CorteCard({ notas, gastos, srRows = [], unlocked = false, onUnlockClick }) {
   const [rainKey, setRainKey] = useState(0)
 
   const { ganaste, gastaste } = useMemo(() => {
     const { mon, sun } = thisWeekRange()
 
-    const ganaste = notas
-      .filter(n => { const d = new Date(n.createdAt); return d >= mon && d <= sun })
-      .reduce((s, n) => s + (Number(n.totalPagado) || 0), 0)
+    const inWeek = fecha => {
+      const d = new Date(fecha.length === 10 ? fecha + 'T12:00:00' : fecha)
+      return d >= mon && d <= sun
+    }
 
-    const gastaste = gastos
-      .filter(g => {
-        const iso = g.fecha && g.fecha.length === 10 ? g.fecha + 'T12:00:00' : g.createdAt
-        const d = new Date(iso)
-        return d >= mon && d <= sun
-      })
-      .reduce((s, g) => s + (Number(g.monto) || 0), 0)
+    const ganaste =
+      notas.filter(n => inWeek(n.createdAt)).reduce((s, n) => s + (Number(n.totalPagado) || 0), 0) +
+      srRows.filter(r => r.tipo === 'venta' && r.fecha && inWeek(r.fecha)).reduce((s, r) => s + (Number(r.precio) || 0), 0)
+
+    const gastaste =
+      gastos.filter(g => inWeek(g.fecha && g.fecha.length === 10 ? g.fecha + 'T12:00:00' : g.createdAt)).reduce((s, g) => s + (Number(g.monto) || 0), 0) +
+      srRows.filter(r => r.tipo === 'salida' && r.fecha && inWeek(r.fecha)).reduce((s, r) => s + (Number(r.precio) || 0), 0)
 
     return { ganaste, gastaste }
-  }, [notas, gastos])
+  }, [notas, gastos, srRows])
 
   const tienes = ganaste - gastaste
   const positivo = tienes >= 0
@@ -392,7 +394,7 @@ const buildModules = (onNavigate) => [
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 
-export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], onChangePinRequest }) {
+export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], onSrChange, onChangePinRequest }) {
   const modules = buildModules(onNavigate)
   const [corteUnlocked, setCorteUnlocked] = useState(false)
   const [showCortePin,  setShowCortePin]  = useState(false)
@@ -410,9 +412,12 @@ export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = 
         <CorteCard
           notas={notas}
           gastos={gastos}
+          srRows={srRows}
           unlocked={corteUnlocked}
           onUnlockClick={() => setShowCortePin(true)}
         />
+
+        <SanRamonCard onSrChange={onSrChange} />
 
         <main className="grid grid-cols-1 sm:grid-cols-2 gap-5 px-1">
           {modules.map((m, i) => (
