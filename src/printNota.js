@@ -47,8 +47,8 @@ export async function printNota({
   const logoSrc = await getLogo()
 
   const logoHTML = logoSrc
-    ? `<img src="${logoSrc}" alt="Bakinglove" style="width:100px;height:auto;object-fit:contain;flex-shrink:0;">`
-    : `<span style="font-size:14pt;font-style:italic;color:#d9748f;font-weight:800;">Bakinglove</span>`
+    ? `<img src="${logoSrc}" alt="Bakinglove" style="width:72px;height:auto;object-fit:contain;flex-shrink:0;">`
+    : `<span style="font-size:12pt;font-style:italic;color:#d9748f;font-weight:800;">Bakinglove</span>`
 
   // ── Filas de productos (solo las que tienen descripción) ───
   const prodRows = prods
@@ -66,7 +66,7 @@ export async function printNota({
     }).join('')
 
   const entregaRow = costoEntrega > 0
-    ? '<tr><td colspan="2"></td><td style="text-align:right;font-size:7.5pt;color:#888;">+ Entrega</td>' +
+    ? '<tr><td colspan="2"></td><td style="text-align:right;font-size:6.5pt;color:#888;">+ Entrega</td>' +
       '<td class="r">' + fmtMoney(costoEntrega) + '</td></tr>'
     : ''
 
@@ -74,10 +74,10 @@ export async function printNota({
   const filledObs = obs.filter(o => o && String(o).trim())
   const obsToRender = filledObs.length > 0 ? filledObs : ['']
   const obsRows = obsToRender.map((o, i) =>
-    '<tr><td class="c" style="width:7mm;max-width:7mm;">' + (i + 1) + '</td><td>' + esc(o) + '</td></tr>'
+    '<tr><td class="c" style="width:6mm;max-width:6mm;">' + (i + 1) + '</td><td>' + esc(o) + '</td></tr>'
   ).join('')
 
-  // ── Filas de pagos (vista editable) ────────────────────────
+  // ── Filas de pagos ──────────────────────────────────────────
   const pagoRows = pagos.map((p, i) =>
     '<tr>' +
       `<td class="c">${i + 1}</td>` +
@@ -100,151 +100,25 @@ export async function printNota({
       ? '<span class="tag sr dim">SAN RAMON</span>'
       : '<span class="tag sr">SAN RAMON</span>'
 
-  // ── HTML completo ────────────────────────────────────────────
-  const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8"/>
-<title>Nota ${esc(folio)} · Bakinglove</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0;}
-
-  /* ── Media hoja A4, altura automática según contenido ── */
-  @page{size:A4 portrait;margin:0;}
-  html,body{
-    font-family:"Plus Jakarta Sans",Arial,sans-serif;
-    color:#2b2731;background:#fff;
-    -webkit-print-color-adjust:exact;
-    print-color-adjust:exact;
-  }
-
-  .half{
-    width:210mm;
-    padding:5mm 9mm 6mm;
-    display:flex;
-    flex-direction:column;
-    gap:1.4mm;
-  }
-
-  /* ── Encabezado ── */
-  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:8mm;}
-  h1{
-    font-size:20pt;font-weight:800;text-transform:uppercase;
-    line-height:.95;letter-spacing:-.5px;color:#111018;flex-shrink:0;
-  }
-
-  /* ── Folio + contacto ── */
-  .toprow{display:flex;gap:6mm;align-items:flex-start;flex-wrap:wrap;}
-  .folio-bar{
-    display:inline-flex;align-items:stretch;
-    border:1px solid #c9c9d0;border-radius:4px;overflow:hidden;
-    height:8.5mm;flex-shrink:0;
-  }
-  .folio-bar .fl{
-    background:#e4e4e8;font-weight:700;font-size:8pt;
-    display:flex;align-items:center;padding:0 4mm;letter-spacing:.4px;white-space:nowrap;
-  }
-  .folio-bar .fv{
-    display:flex;align-items:center;padding:0 5mm;
-    color:#2f5fb0;font-weight:800;font-size:14pt;letter-spacing:.3px;white-space:nowrap;
-  }
-  .contact{font-size:7.5pt;line-height:1.65;color:#1a1a22;}
-  .contact b{font-weight:700;}
-  .cline{display:flex;align-items:center;gap:2.5mm;}
-  .cline+.cline{margin-top:.8mm;}
-  .ico-circle{
-    width:4mm;height:4mm;border:1.5px solid #1f2b5e;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    font-size:5.5pt;line-height:1;
-  }
-  .ico-pin{color:#d9748f;font-size:9pt;flex-shrink:0;line-height:1;}
-
-  /* ── Tabla de campos ── */
-  table{border-collapse:collapse;width:100%;}
-  .fields td{border:1px solid #c9c9d0;height:5.8mm;font-size:8pt;vertical-align:middle;}
-  .fields .lb{background:#e4e4e8;font-weight:700;padding:0 2.5mm;white-space:nowrap;width:1%;}
-  .fields .vl{padding:0 2.5mm;}
-  .fields .pk{background:#fbe0ea;}
-
-  /* ── Tags ── */
-  .tags{display:flex;gap:5px;}
-  .tag{
-    border:1px solid #c9c9d0;border-radius:4px;
-    height:6.5mm;display:inline-flex;align-items:center;
-    padding:0 3mm;font-size:8pt;font-weight:700;letter-spacing:.4px;
-  }
-  .tag.bh{color:#d9748f;}
-  .tag.bh.active{background:#fbe0ea;border-color:#f4a0be;font-weight:800;}
-  .tag.sr{background:#d9efd2;color:#5d8a49;border-color:#bfe0b4;}
-  .tag.sr.active{font-weight:800;outline:2px solid #5d8a49;outline-offset:1px;}
-  .tag.dim{background:#fff!important;color:#ccc!important;border-color:#eee!important;}
-
-  /* ── Cabecera gris de sección ── */
-  .barhead{
-    background:#e4e4e8;text-align:center;font-weight:800;
-    font-size:9pt;letter-spacing:1px;padding:2px;
-    border:1px solid #c9c9d0;
-  }
-
-  /* ── Tablas de datos ── */
-  .dt{border:1px solid #1f2b5e;}
-  .dt thead th{
-    background:#FBE0E8;color:#2b2731;font-size:7.5pt;font-weight:700;
-    padding:2.5px 4px;border-right:1px solid rgba(217,116,143,.25);
-    text-align:left;white-space:nowrap;
-  }
-  .dt td{
-    border:1px solid #c9c9d0;padding:0 4px;
-    height:6.5mm;font-size:8pt;vertical-align:middle;
-  }
-  .dt .c{text-align:center;font-weight:700;}
-  .dt .r{text-align:right;color:#888;font-weight:700;}
-  .dt tfoot td{font-weight:800;}
-
-  /* ── Totales ── */
-  .tots{border-collapse:collapse;width:52%;}
-  .tots td{border:1px solid #c9c9d0;height:6.5mm;padding:0 3mm;font-size:9pt;vertical-align:middle;}
-  .tots .tk{font-weight:800;letter-spacing:.4px;}
-  .tots .tv{text-align:right;font-weight:700;color:#444;}
-
-</style>
-</head>
-<body>
-
-<!-- ═══════════════ MITAD SUPERIOR — NOTA PRINCIPAL ═══════════════ -->
-<div class="half">
-
-  <!-- Título + logo -->
+  // ── Bloque de contenido reutilizable para las dos copias ────
+  const notaBody = `
   <div class="head">
     <h1>Nota<br>de&nbsp;venta</h1>
     ${logoHTML}
   </div>
 
-  <!-- Folio + contacto -->
   <div class="toprow">
     <div class="folio-bar">
       <span class="fl">FOLIO</span>
       <span class="fv">${esc(folio)}</span>
     </div>
     <div class="contact">
-      <div class="cline">
-        <span class="ico-circle">☎</span>
-        <b>222 116 40 61</b>
-      </div>
-      <div class="cline">
-        <span class="ico-pin">&#9679;</span>
-        <b>Calle Del Sol #68, Bello Horizonte</b>
-      </div>
-      <div class="cline">
-        <span class="ico-pin">&#9679;</span>
-        <b>Local 2, C Tulipanes, San Ramon</b>
-      </div>
+      <div class="cline"><span class="ico-circle">☎</span><b>222 116 40 61</b></div>
+      <div class="cline"><span class="ico-pin">&#9679;</span><b>Calle Del Sol #68, Bello Horizonte</b></div>
+      <div class="cline"><span class="ico-pin">&#9679;</span><b>Local 2, C Tulipanes, San Ramon</b></div>
     </div>
   </div>
 
-  <!-- Campos del pedido -->
   <table class="fields">
     <tr>
       <td class="lb">Fecha de Entrega</td>
@@ -268,19 +142,17 @@ export async function printNota({
     </tr>
   </table>
 
-  <!-- Ubicación -->
   <div class="tags">
     <span class="tag" style="background:#fff;color:#2b2731;">CONSUMO</span>
     ${tagBH}
     ${tagSR}
   </div>
 
-  <!-- PEDIDO -->
   <div>
     <div class="barhead">PEDIDO</div>
     <table class="dt">
       <thead><tr>
-        <th style="width:12%">CANTIDAD</th>
+        <th style="width:11%">CANTIDAD</th>
         <th>DESCRIPCION</th>
         <th style="width:13%">PRECIO U</th>
         <th style="width:13%">TOTAL</th>
@@ -297,13 +169,11 @@ export async function printNota({
     </table>
   </div>
 
-  <!-- OBSERVACIONES -->
   <div>
     <div class="barhead">OBSERVACIONES</div>
     <table class="dt"><tbody>${obsRows}</tbody></table>
   </div>
 
-  <!-- PAGOS -->
   <div>
     <div class="barhead">PAGOS</div>
     <table class="dt">
@@ -317,7 +187,6 @@ export async function printNota({
     </table>
   </div>
 
-  <!-- TOTAL / RESTA -->
   <table class="tots">
     <tr>
       <td class="tk">TOTAL</td>
@@ -329,12 +198,155 @@ export async function printNota({
         ${fmtMoney(Math.abs(resta))}
       </td>
     </tr>
-  </table>
+  </table>`
 
+  // ── HTML completo: dos copias exactas en una hoja A4 ─────────
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Nota ${esc(folio)} · Bakinglove</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+
+  @page{size:A4 portrait;margin:0;}
+  html,body{
+    font-family:"Plus Jakarta Sans",Arial,sans-serif;
+    color:#2b2731;background:#fff;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+    width:210mm;height:297mm;overflow:hidden;
+  }
+
+  /* Cada mitad ocupa exactamente la mitad de A4 */
+  .half{
+    width:210mm;
+    height:147.5mm;
+    padding:3.5mm 8mm 3mm;
+    display:flex;
+    flex-direction:column;
+    gap:1mm;
+    overflow:hidden;
+  }
+
+  /* Línea de corte entre las dos copias */
+  .cut{
+    height:2mm;
+    display:flex;align-items:center;justify-content:center;
+    font-size:6.5pt;color:#bbb;letter-spacing:4px;
+    border-top:1px dashed #ccc;border-bottom:1px dashed #ccc;
+  }
+
+  /* Etiqueta NEGOCIO / CLIENTE */
+  .copy-lbl{
+    margin-top:auto;text-align:right;
+    font-size:5.5pt;font-weight:700;letter-spacing:1.5px;color:#bbb;
+    padding-top:.8mm;
+  }
+
+  /* ── Encabezado ── */
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:6mm;}
+  h1{
+    font-size:14pt;font-weight:800;text-transform:uppercase;
+    line-height:.95;letter-spacing:-.5px;color:#111018;flex-shrink:0;
+  }
+
+  /* ── Folio + contacto ── */
+  .toprow{display:flex;gap:4mm;align-items:flex-start;}
+  .folio-bar{
+    display:inline-flex;align-items:stretch;
+    border:1px solid #c9c9d0;border-radius:4px;overflow:hidden;
+    height:7mm;flex-shrink:0;
+  }
+  .folio-bar .fl{
+    background:#e4e4e8;font-weight:700;font-size:7pt;
+    display:flex;align-items:center;padding:0 3mm;letter-spacing:.4px;white-space:nowrap;
+  }
+  .folio-bar .fv{
+    display:flex;align-items:center;padding:0 4mm;
+    color:#2f5fb0;font-weight:800;font-size:12pt;letter-spacing:.3px;white-space:nowrap;
+  }
+  .contact{font-size:6.5pt;line-height:1.5;color:#1a1a22;}
+  .contact b{font-weight:700;}
+  .cline{display:flex;align-items:center;gap:2mm;}
+  .cline+.cline{margin-top:.5mm;}
+  .ico-circle{
+    width:3.5mm;height:3.5mm;border:1.5px solid #1f2b5e;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    font-size:4.5pt;line-height:1;
+  }
+  .ico-pin{color:#d9748f;font-size:8pt;flex-shrink:0;line-height:1;}
+
+  /* ── Tabla de campos ── */
+  table{border-collapse:collapse;width:100%;}
+  .fields td{border:1px solid #c9c9d0;height:5mm;font-size:7pt;vertical-align:middle;}
+  .fields .lb{background:#e4e4e8;font-weight:700;padding:0 2mm;white-space:nowrap;width:1%;}
+  .fields .vl{padding:0 2mm;}
+  .fields .pk{background:#fbe0ea;}
+
+  /* ── Tags ── */
+  .tags{display:flex;gap:4px;}
+  .tag{
+    border:1px solid #c9c9d0;border-radius:4px;
+    height:5.5mm;display:inline-flex;align-items:center;
+    padding:0 2.5mm;font-size:7pt;font-weight:700;letter-spacing:.4px;
+  }
+  .tag.bh{color:#d9748f;}
+  .tag.bh.active{background:#fbe0ea;border-color:#f4a0be;font-weight:800;}
+  .tag.sr{background:#d9efd2;color:#5d8a49;border-color:#bfe0b4;}
+  .tag.sr.active{font-weight:800;outline:2px solid #5d8a49;outline-offset:1px;}
+  .tag.dim{background:#fff!important;color:#ccc!important;border-color:#eee!important;}
+
+  /* ── Cabecera gris de sección ── */
+  .barhead{
+    background:#e4e4e8;text-align:center;font-weight:800;
+    font-size:7.5pt;letter-spacing:1px;padding:1.5px;
+    border:1px solid #c9c9d0;
+  }
+
+  /* ── Tablas de datos ── */
+  .dt{border:1px solid #1f2b5e;}
+  .dt thead th{
+    background:#FBE0E8;color:#2b2731;font-size:6.5pt;font-weight:700;
+    padding:2px 3px;border-right:1px solid rgba(217,116,143,.25);
+    text-align:left;white-space:nowrap;
+  }
+  .dt td{
+    border:1px solid #c9c9d0;padding:0 3px;
+    height:5.5mm;font-size:7pt;vertical-align:middle;
+  }
+  .dt .c{text-align:center;font-weight:700;}
+  .dt .r{text-align:right;color:#888;font-weight:700;}
+  .dt tfoot td{font-weight:800;}
+
+  /* ── Totales ── */
+  .tots{border-collapse:collapse;width:52%;}
+  .tots td{border:1px solid #c9c9d0;height:5.5mm;padding:0 2.5mm;font-size:8pt;vertical-align:middle;}
+  .tots .tk{font-weight:800;letter-spacing:.4px;}
+  .tots .tv{text-align:right;font-weight:700;color:#444;}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ MITAD SUPERIOR — NEGOCIO ═══════════════ -->
+<div class="half">
+  ${notaBody}
+  <div class="copy-lbl">NEGOCIO</div>
+</div>
+
+<!-- Línea de corte -->
+<div class="cut">· · · · · · · · ✂ · · · · · · · · · · · · · · · · · · ✂ · · · · · · · ·</div>
+
+<!-- ═══════════════ MITAD INFERIOR — CLIENTE ═══════════════ -->
+<div class="half">
+  ${notaBody}
+  <div class="copy-lbl">CLIENTE</div>
 </div>
 
 <script>
-  // Esperar que la fuente cargue antes de imprimir
   document.fonts.ready.then(function() { window.print() })
 </script>
 </body>
