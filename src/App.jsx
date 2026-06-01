@@ -52,6 +52,63 @@ export default function App() {
     return () => { unsubNotas(); unsubGastos(); unsubSR() }
   }, [])
 
+  // ── Auto-cálculo de saldo inicial cada lunes ──────────────────
+  useEffect(() => {
+    if (loading) return
+
+    const toISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+
+    const today = new Date()
+    const mon   = new Date(today)
+    mon.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+    const currentKey = toISO(mon)
+
+    if (saldosSemana.find(s => s.id === currentKey)) return
+
+    const prevMon = new Date(mon)
+    prevMon.setDate(mon.getDate() - 7)
+    const prevKey   = toISO(prevMon)
+    const prevSaldo = saldosSemana.find(s => s.id === prevKey)
+    if (!prevSaldo) return
+
+    const prevSun = new Date(prevMon)
+    prevSun.setDate(prevMon.getDate() + 6)
+    prevSun.setHours(23, 59, 59, 999)
+    prevMon.setHours(0, 0, 0, 0)
+
+    const inPrev = f => {
+      const d = new Date(f.length === 10 ? f + 'T12:00:00' : f)
+      return d >= prevMon && d <= prevSun
+    }
+
+    let bklIngEf = 0
+    notas.filter(n => inPrev(n.createdAt)).forEach(n =>
+      (n.pagos || []).forEach(p => {
+        if (p.metodoPago === 'Efectivo') bklIngEf += parseFloat(p.monto) || 0
+      })
+    )
+
+    let bklGastoEf = 0
+    gastos.filter(g => inPrev(g.fecha || g.createdAt)).forEach(g => {
+      if (g.formaPago === 'Efectivo') bklGastoEf += parseFloat(g.monto) || 0
+    })
+
+    let srVentasEf = 0, srSalidasEf = 0
+    srRows.filter(r => r.fecha && inPrev(r.fecha)).forEach(r => {
+      const m = parseFloat(r.precio) || 0
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') srVentasEf  += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo') srSalidasEf += m
+    })
+
+    setDoc(doc(db, 'saldos_semana', currentKey), {
+      id:          currentKey,
+      efectivoBkl: (prevSaldo.efectivoBkl || 0) + bklIngEf - bklGastoEf,
+      efectivoSr:  (prevSaldo.efectivoSr  || 0) + srVentasEf - srSalidasEf,
+      bancos:      prevSaldo.bancos || 0,
+      updatedAt:   new Date().toISOString(),
+    })
+  }, [loading, saldosSemana, notas, gastos, srRows])
+
   // ── CRUD notas ────────────────────────────────────────────────
   const handleSaveNota = (nota) => {
     setDoc(doc(db, 'notas', nota.id), nota)
