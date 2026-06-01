@@ -64,11 +64,24 @@ function labelDia(isoStr) {
 
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 
-export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], onBack }) {
+const toISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+
+function getMondayISO(date) {
+  const d = new Date(date)
+  const day = d.getDay()
+  d.setDate(d.getDate() - ((day + 6) % 7))
+  return toISO(d)
+}
+
+export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], saldosSemana = [], onBack }) {
   const now  = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [filterDate, setFilterDate] = useState(todayISO)
-  const week = getWeekRange(refDate)
+  const week    = getWeekRange(refDate)
+  const weekKey = getMondayISO(refDate)
+  const saldoSemana = saldosSemana.find(s => s.id === weekKey) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
+  const saldoInicialEfectivo = (saldoSemana.efectivoBkl || 0) + (saldoSemana.efectivoSr || 0)
+  const saldoInicialBancos   = saldoSemana.bancos || 0
 
   const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(localISO(d)) }
@@ -136,8 +149,8 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], o
   const totalEfectivo = acum.Efectivo
   const totalGeneral  = totalBancos + totalEfectivo
 
-  const saldoBancos   = ingBancos   - gastoBancos
-  const saldoEfectivo = ingEfectivo - gastoEfectivo
+  const saldoBancos   = saldoInicialBancos   + ingBancos   - gastoBancos
+  const saldoEfectivo = saldoInicialEfectivo + ingEfectivo - gastoEfectivo
   const saldoTotal    = saldoBancos + saldoEfectivo
 
   const prevWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d) }
@@ -222,9 +235,9 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], o
         <div className="grid grid-cols-2 gap-3">
           <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard">
             <TableHead label="SALDO INICIAL" />
-            <SaldoRow label="Bancos"   value="$ -" />
-            <SaldoRow label="Efectivo" value="$ -" last />
-            <TotalGreenRow value="-" />
+            <SaldoRow label="Bancos"   value={fmt(saldoInicialBancos)}   />
+            <SaldoRow label="Efectivo" value={fmt(saldoInicialEfectivo)} last />
+            <TotalGreenRow value={saldoInicialBancos + saldoInicialEfectivo > 0 ? fmtShort(saldoInicialBancos + saldoInicialEfectivo) : '-'} />
           </div>
           <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard">
             <TableHead label="SALDO FINAL" />

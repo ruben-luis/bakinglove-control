@@ -15,12 +15,13 @@ import SanRamonView from './SanRamonView'
 import PinModal, { savePin } from './PinModal'
 
 export default function App() {
-  const [view,      setView]      = useState('dashboard')
-  const [notas,     setNotas]     = useState([])
-  const [gastos,    setGastos]    = useState([])
-  const [srRows,    setSrRows]    = useState([])
-  const [pinAction, setPinAction] = useState(null)
-  const [loading,   setLoading]   = useState(true)
+  const [view,         setView]         = useState('dashboard')
+  const [notas,        setNotas]        = useState([])
+  const [gastos,       setGastos]       = useState([])
+  const [srRows,       setSrRows]       = useState([])
+  const [saldosSemana, setSaldosSemana] = useState([])
+  const [pinAction,    setPinAction]    = useState(null)
+  const [loading,      setLoading]      = useState(true)
 
   // ── Suscripción en tiempo real a Firestore ────────────────────
   useEffect(() => {
@@ -44,33 +45,34 @@ export default function App() {
       setSrRows(snap.docs.map(d => d.data()))
       loaded.sr = true; check()
     })
+    onSnapshot(collection(db, 'saldos_semana'), snap => {
+      setSaldosSemana(snap.docs.map(d => d.data()))
+    })
 
     return () => { unsubNotas(); unsubGastos(); unsubSR() }
   }, [])
 
   // ── CRUD notas ────────────────────────────────────────────────
-  const handleSaveNota = async (nota) => {
-    await setDoc(doc(db, 'notas', nota.id), nota)
+  const handleSaveNota = (nota) => {
+    setDoc(doc(db, 'notas', nota.id), nota)
     setView('historial')
   }
 
-  const handleEditNota = async (notaEditada) => {
-    await setDoc(doc(db, 'notas', notaEditada.id), notaEditada)
+  const handleEditNota = (notaEditada) => {
+    setDoc(doc(db, 'notas', notaEditada.id), notaEditada)
   }
 
-  const handleDeleteNota = async (notaId) => {
-    await deleteDoc(doc(db, 'notas', notaId))
+  const handleDeleteNota = (notaId) => {
+    deleteDoc(doc(db, 'notas', notaId))
   }
 
   // ── CRUD gastos ───────────────────────────────────────────────
-  const handleSaveGastos = async (updatedGastos) => {
+  const handleSaveGastos = (updatedGastos) => {
     const oldIds = new Set(gastos.map(g => g.id))
     const newIds = new Set(updatedGastos.map(g => g.id))
     const deletes = [...oldIds].filter(id => !newIds.has(id))
-    await Promise.all([
-      ...deletes.map(id => deleteDoc(doc(db, 'gastos', id))),
-      ...updatedGastos.map(g => setDoc(doc(db, 'gastos', g.id), g)),
-    ])
+    deletes.forEach(id => deleteDoc(doc(db, 'gastos', id)))
+    updatedGastos.forEach(g => setDoc(doc(db, 'gastos', g.id), g))
   }
 
   // ── Navegación / PIN ──────────────────────────────────────────
@@ -117,7 +119,7 @@ export default function App() {
   } else if (view === 'historial') {
     content = <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
   } else if (view === 'concentrado') {
-    content = <ConcentradoIngresos notas={notas} gastos={gastos} srRows={srRows} onBack={() => setView('dashboard')} />
+    content = <ConcentradoIngresos notas={notas} gastos={gastos} srRows={srRows} saldosSemana={saldosSemana} onBack={() => setView('dashboard')} />
   } else if (view === 'gastos') {
     content = <ConcentradoGastos gastos={gastos} srRows={srRows} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
@@ -131,6 +133,7 @@ export default function App() {
         notas={notas}
         gastos={gastos}
         srRows={srRows}
+        saldosSemana={saldosSemana}
         onSrChange={setSrRows}
         onChangePinRequest={() => setPinAction('change-verify')}
       />

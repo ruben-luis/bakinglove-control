@@ -209,8 +209,20 @@ function SectionLabel({ children, color = 'rgba(255,255,255,.35)' }) {
   )
 }
 
-function CorteCard({ notas, gastos, srRows = [], unlocked = false, onUnlockClick }) {
+function getMondayISODash() {
+  const now = new Date()
+  const day = now.getDay()
+  const mon = new Date(now)
+  mon.setDate(now.getDate() - ((day + 6) % 7))
+  const d = mon
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = false, onUnlockClick }) {
   const [rainKey, setRainKey] = useState(0)
+
+  const weekKey = getMondayISODash()
+  const saldoSemana = saldosSemana.find(s => s.id === weekKey) || { efectivoBkl: 0, efectivoSr: 0 }
 
   const stats = useMemo(() => {
     const { mon, sun } = thisWeekRange()
@@ -240,8 +252,8 @@ function CorteCard({ notas, gastos, srRows = [], unlocked = false, onUnlockClick
   }, [notas, gastos, srRows])
 
   const { bklGanaste, bklGastaste, srVentas, srSalidas } = stats
-  const bklTienes  = bklGanaste - bklGastaste
-  const srNeto     = srVentas - srSalidas
+  const bklTienes   = bklGanaste - bklGastaste + (saldoSemana.efectivoBkl || 0)
+  const srNeto      = srVentas - srSalidas + (saldoSemana.efectivoSr || 0)
   const totalTienes = bklTienes + srNeto
   const positivo    = totalTienes >= 0
 
@@ -434,7 +446,7 @@ const buildModules = (onNavigate) => [
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 
-export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], onSrChange, onChangePinRequest }) {
+export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], saldosSemana = [], onSrChange, onChangePinRequest }) {
   const modules = buildModules(onNavigate)
   const [corteUnlocked, setCorteUnlocked] = useState(false)
   const [showCortePin,  setShowCortePin]  = useState(false)
@@ -453,6 +465,7 @@ export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = 
           notas={notas}
           gastos={gastos}
           srRows={srRows}
+          saldosSemana={saldosSemana}
           unlocked={corteUnlocked}
           onUnlockClick={() => setShowCortePin(true)}
         />
