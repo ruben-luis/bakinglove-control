@@ -32,6 +32,24 @@ function padRows(rows, fecha) {
   return arr
 }
 
+function computeSaldoInicial(targetDate, saldos, rows) {
+  const storedDates = Object.keys(saldos).filter(d => d <= targetDate).sort()
+  if (storedDates.length === 0) return null
+  const baseDate = storedDates[storedDates.length - 1]
+  let saldo = saldos[baseDate]
+  let current = baseDate
+  while (current < targetDate) {
+    const dr = rows.filter(r => r.fecha === current)
+    const ventas  = dr.filter(r => r.tipo === 'venta').reduce((s, r)  => s + (parseFloat(r.precio) || 0), 0)
+    const salidas = dr.filter(r => r.tipo === 'salida').reduce((s, r) => s + (parseFloat(r.precio) || 0), 0)
+    saldo = saldo + ventas - salidas
+    const d = new Date(current + 'T12:00:00')
+    d.setDate(d.getDate() + 1)
+    current = localISO(d)
+  }
+  return saldo
+}
+
 function labelDia(iso) {
   if (iso === todayISO()) return 'Hoy'
   const d = new Date(iso + 'T12:00:00')
@@ -72,40 +90,31 @@ export default function SanRamonView({ onBack, onSrChange }) {
       saldosRef.current  = saldos
       const today = todayISO()
       setDayRows(padRows(rows.filter(r => r.fecha === today), today))
-      setSaldoIni(saldos[today] != null ? String(saldos[today]) : '')
+      const ini = computeSaldoInicial(today, saldos, rows)
+      setSaldoIni(ini != null ? String(ini) : '0.00')
       setReady(true)
     })
   }, [])
 
-  function persist(rows, fecha, saldo) {
+  function persist(rows, fecha) {
     const filled = rows.filter(r => r.producto || r.precio || r.tipo)
     const others = allRowsRef.current.filter(r => r.fecha !== fecha)
     const newAll = [...others, ...filled]
     allRowsRef.current = newAll
 
-    // Eliminar filas viejas del día y escribir las nuevas
     const oldForDay = allRowsRef.current.filter(r => r.fecha === fecha && !filled.find(f => f.id === r.id))
     oldForDay.forEach(r => deleteDoc(doc(db, 'sanramon_rows', r.id)))
     filled.forEach(r => setDoc(doc(db, 'sanramon_rows', r.id), r))
-
-    // Guardar saldo
-    const n = parseFloat(saldo)
-    if (!isNaN(n) && n >= 0) {
-      saldosRef.current[fecha] = n
-      setDoc(doc(db, 'sanramon_saldos', fecha), { saldo: n })
-    } else {
-      delete saldosRef.current[fecha]
-      deleteDoc(doc(db, 'sanramon_saldos', fecha))
-    }
 
     onSrChange?.(newAll)
   }
 
   function switchDate(newDate) {
-    persist(dayRows, filterDate, saldoIni)
+    persist(dayRows, filterDate)
     setFilterDate(newDate)
     setDayRows(padRows(allRowsRef.current.filter(r => r.fecha === newDate), newDate))
-    setSaldoIni(saldosRef.current[newDate] != null ? String(saldosRef.current[newDate]) : '')
+    const ini = computeSaldoInicial(newDate, saldosRef.current, allRowsRef.current)
+    setSaldoIni(ini != null ? String(ini) : '0.00')
   }
 
   function prevDay() { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); switchDate(localISO(d)) }
@@ -114,7 +123,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
   function updRow(i, field, val) {
     const next = dayRows.map((r, idx) => idx === i ? { ...r, [field]: val, updatedAt: new Date().toISOString() } : r)
     setDayRows(next)
-    persist(next, filterDate, saldoIni)
+    persist(next, filterDate)
   }
 
   function toggleTipo(i, tipo) { updRow(i, 'tipo', dayRows[i].tipo === tipo ? null : tipo) }
@@ -123,7 +132,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
   function addRow() {
     const next = [...dayRows, emptyRow(filterDate)]
     setDayRows(next)
-    persist(next, filterDate, saldoIni)
+    persist(next, filterDate)
   }
 
   function deleteRow(i) {
@@ -131,14 +140,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
       ? dayRows.map((r, idx) => idx === i ? emptyRow(filterDate) : r)
       : dayRows.filter((_, idx) => idx !== i)
     setDayRows(next)
-    persist(next, filterDate, saldoIni)
-  }
-
-  function handleSaldoBlur() {
-    const n = parseFloat(saldoIni)
-    const val = !isNaN(n) && n >= 0 ? n.toFixed(2) : ''
-    setSaldoIni(val)
-    persist(dayRows, filterDate, val)
+    persist(next, filterDate)
   }
 
   const totalVentas  = dayRows.reduce((s, r) => r.tipo === 'venta'  ? s + (parseFloat(r.precio) || 0) : s, 0)
@@ -218,13 +220,9 @@ export default function SanRamonView({ onBack, onSrChange }) {
               <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, color: '#9a9aa3', marginBottom: 4 }}>SALDO INICIAL</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <span style={{ color: '#9a9aa3', fontWeight: 700, fontSize: 14 }}>$</span>
-                <input
-                  type="text" value={saldoIni}
-                  onChange={e => setSaldoIni(e.target.value)}
-                  onBlur={handleSaldoBlur}
-                  placeholder="0.00"
-                  style={{ border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 16, fontWeight: 700, color: '#1a51c4', width: '100%', minWidth: 0 }}
-                />
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#1a51c4' }}>
+                  {fmt(parseFloat(saldoIni) || 0)}
+                </span>
               </div>
             </div>
             {/* Saldo Final */}
