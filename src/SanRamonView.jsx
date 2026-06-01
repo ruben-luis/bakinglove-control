@@ -1,5 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { db } from './firebase'
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore'
 
 const DIAS  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -49,31 +51,53 @@ const CHECK = (
 )
 
 export default function SanRamonView({ onBack, onSrChange }) {
-  const allRowsRef = useRef(
-    (() => { try { return JSON.parse(localStorage.getItem('bkl_sanramon') || '[]') } catch { return [] } })()
-  )
-  const saldosRef = useRef(
-    (() => { try { return JSON.parse(localStorage.getItem('bkl_sanramon_saldos') || '{}') } catch { return {} } })()
-  )
+  const allRowsRef = useRef([])
+  const saldosRef  = useRef({})
 
   const [filterDate, setFilterDate] = useState(todayISO)
-  const [dayRows,    setDayRows]    = useState(() =>
-    padRows(allRowsRef.current.filter(r => r.fecha === todayISO()), todayISO())
-  )
-  const [saldoIni, setSaldoIni] = useState(
-    () => saldosRef.current[todayISO()] != null ? String(saldosRef.current[todayISO()]) : ''
-  )
+  const [dayRows,    setDayRows]    = useState(() => padRows([], todayISO()))
+  const [saldoIni,   setSaldoIni]   = useState('')
+  const [ready,      setReady]      = useState(false)
+
+  // Carga inicial desde Firestore
+  useEffect(() => {
+    Promise.all([
+      getDocs(collection(db, 'sanramon_rows')),
+      getDocs(collection(db, 'sanramon_saldos')),
+    ]).then(([rowsSnap, saldosSnap]) => {
+      const rows   = rowsSnap.docs.map(d => d.data())
+      const saldos = {}
+      saldosSnap.docs.forEach(d => { saldos[d.id] = d.data().saldo })
+      allRowsRef.current = rows
+      saldosRef.current  = saldos
+      const today = todayISO()
+      setDayRows(padRows(rows.filter(r => r.fecha === today), today))
+      setSaldoIni(saldos[today] != null ? String(saldos[today]) : '')
+      setReady(true)
+    })
+  }, [])
 
   function persist(rows, fecha, saldo) {
     const filled = rows.filter(r => r.producto || r.precio || r.tipo)
     const others = allRowsRef.current.filter(r => r.fecha !== fecha)
     const newAll = [...others, ...filled]
     allRowsRef.current = newAll
+
+    // Eliminar filas viejas del día y escribir las nuevas
+    const oldForDay = allRowsRef.current.filter(r => r.fecha === fecha && !filled.find(f => f.id === r.id))
+    oldForDay.forEach(r => deleteDoc(doc(db, 'sanramon_rows', r.id)))
+    filled.forEach(r => setDoc(doc(db, 'sanramon_rows', r.id), r))
+
+    // Guardar saldo
     const n = parseFloat(saldo)
-    if (!isNaN(n) && n >= 0) saldosRef.current[fecha] = n
-    else delete saldosRef.current[fecha]
-    localStorage.setItem('bkl_sanramon', JSON.stringify(newAll))
-    localStorage.setItem('bkl_sanramon_saldos', JSON.stringify(saldosRef.current))
+    if (!isNaN(n) && n >= 0) {
+      saldosRef.current[fecha] = n
+      setDoc(doc(db, 'sanramon_saldos', fecha), { saldo: n })
+    } else {
+      delete saldosRef.current[fecha]
+      deleteDoc(doc(db, 'sanramon_saldos', fecha))
+    }
+
     onSrChange?.(newAll)
   }
 
@@ -130,6 +154,12 @@ export default function SanRamonView({ onBack, onSrChange }) {
     padding: '9px 8px', border: `1px solid ${LINE}`, textAlign: 'center',
     whiteSpace: 'nowrap', letterSpacing: 0.5,
   }
+
+  if (!ready) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eceaee' }}>
+      <span style={{ fontSize: 14, color: '#888', fontWeight: 600 }}>Cargando San Ramón…</span>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-cream">

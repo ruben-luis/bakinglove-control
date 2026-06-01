@@ -1,5 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './index.css'
+import { db } from './firebase'
+import {
+  collection, onSnapshot,
+  doc, setDoc, deleteDoc,
+} from 'firebase/firestore'
 import Dashboard from './Dashboard'
 import NotaDeVenta from './NotaDeVenta'
 import HistorialNotas from './HistorialNotas'
@@ -9,65 +14,63 @@ import CalendarioEntregas from './CalendarioEntregas'
 import SanRamonView from './SanRamonView'
 import PinModal, { savePin } from './PinModal'
 
-function loadNotas() {
-  try {
-    const notas = JSON.parse(localStorage.getItem('bkl_notas') || '[]')
-    localStorage.setItem('bkl_folio_count', String(notas.length))
-    return notas
-  } catch {
-    localStorage.setItem('bkl_folio_count', '0')
-    return []
-  }
-}
-
-function saveNotas(notas) {
-  localStorage.setItem('bkl_notas', JSON.stringify(notas))
-  localStorage.setItem('bkl_folio_count', String(notas.length))
-}
-
-function loadGastos() {
-  try { return JSON.parse(localStorage.getItem('bkl_gastos') || '[]') } catch { return [] }
-}
-
-function saveGastos(gastos) {
-  localStorage.setItem('bkl_gastos', JSON.stringify(gastos))
-}
-
-function loadSrRows() {
-  try { return JSON.parse(localStorage.getItem('bkl_sanramon') || '[]') } catch { return [] }
-}
-
 export default function App() {
   const [view,      setView]      = useState('dashboard')
-  const [notas,     setNotas]     = useState(loadNotas)
-  const [gastos,    setGastos]    = useState(loadGastos)
-  const [srRows,    setSrRows]    = useState(loadSrRows)
+  const [notas,     setNotas]     = useState([])
+  const [gastos,    setGastos]    = useState([])
+  const [srRows,    setSrRows]    = useState([])
   const [pinAction, setPinAction] = useState(null)
+  const [loading,   setLoading]   = useState(true)
 
-  const handleSaveNota = (nota) => {
-    const updated = [nota, ...notas]
-    setNotas(updated)
-    saveNotas(updated)
+  // ── Suscripción en tiempo real a Firestore ────────────────────
+  useEffect(() => {
+    const loaded = { notas: false, gastos: false, sr: false }
+    const check  = () => {
+      if (loaded.notas && loaded.gastos && loaded.sr) setLoading(false)
+    }
+
+    const unsubNotas = onSnapshot(collection(db, 'notas'), snap => {
+      setNotas(snap.docs.map(d => d.data()))
+      loaded.notas = true; check()
+    })
+    const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => {
+      setGastos(snap.docs.map(d => d.data()))
+      loaded.gastos = true; check()
+    })
+    const unsubSR = onSnapshot(collection(db, 'sanramon_rows'), snap => {
+      setSrRows(snap.docs.map(d => d.data()))
+      loaded.sr = true; check()
+    })
+
+    return () => { unsubNotas(); unsubGastos(); unsubSR() }
+  }, [])
+
+  // ── CRUD notas ────────────────────────────────────────────────
+  const handleSaveNota = async (nota) => {
+    await setDoc(doc(db, 'notas', nota.id), nota)
     setView('historial')
   }
 
-  const handleEditNota = (notaEditada) => {
-    const updated = notas.map(n => n.id === notaEditada.id ? notaEditada : n)
-    setNotas(updated)
-    saveNotas(updated)
+  const handleEditNota = async (notaEditada) => {
+    await setDoc(doc(db, 'notas', notaEditada.id), notaEditada)
   }
 
-  const handleDeleteNota = (notaId) => {
-    const updated = notas.filter(n => n.id !== notaId)
-    setNotas(updated)
-    saveNotas(updated)
+  const handleDeleteNota = async (notaId) => {
+    await deleteDoc(doc(db, 'notas', notaId))
   }
 
-  const handleSaveGastos = (updatedGastos) => {
-    setGastos(updatedGastos)
-    saveGastos(updatedGastos)
+  // ── CRUD gastos ───────────────────────────────────────────────
+  const handleSaveGastos = async (updatedGastos) => {
+    const oldIds = new Set(gastos.map(g => g.id))
+    const newIds = new Set(updatedGastos.map(g => g.id))
+    const deletes = [...oldIds].filter(id => !newIds.has(id))
+    await Promise.all([
+      ...deletes.map(id => deleteDoc(doc(db, 'gastos', id))),
+      ...updatedGastos.map(g => setDoc(doc(db, 'gastos', g.id), g)),
+    ])
   }
 
+  // ── Navegación / PIN ──────────────────────────────────────────
   function navigate(dest) {
     if (dest === 'concentrado' || dest === 'gastos') {
       setPinAction('nav-' + dest)
@@ -86,6 +89,25 @@ export default function App() {
   const pinTitle = pinAction === 'change-new' ? 'Ingresa tu nuevo NIP' : 'Ingresa tu NIP'
   const pinMode  = pinAction === 'change-new' ? 'enter-new' : 'verify'
 
+  // ── Pantalla de carga inicial ─────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#eceaee', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
+        gap: 16,
+      }}>
+        <img src="/bakinglove-logo.png" alt="Bakinglove"
+          style={{ width: 90, opacity: 0.85 }} />
+        <div style={{ fontSize: 14, color: '#888', fontWeight: 600 }}>
+          Cargando datos…
+        </div>
+      </div>
+    )
+  }
+
+  // ── Vistas ────────────────────────────────────────────────────
   let content
   if (view === 'nota') {
     content = <NotaDeVenta onBack={() => setView('dashboard')} onSave={handleSaveNota} />
