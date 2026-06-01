@@ -390,7 +390,13 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
     return `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]} ${d.getFullYear()}`
   }
 
-  const filteredNotas = notas.filter(n => creacionDay(n) === filterDate)
+  const filteredNotas = notas
+    .filter(n => creacionDay(n) === filterDate)
+    .sort((a, b) => {
+      const aNum = parseInt(a.folio?.replace('#', '') || '0')
+      const bNum = parseInt(b.folio?.replace('#', '') || '0')
+      return bNum - aNum
+    })
 
   const groups = []
   const seen = new Map()

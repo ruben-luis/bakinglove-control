@@ -12,12 +12,6 @@ const PINK_TEXT = '#d9748f'
 const MINT_BG   = '#d9efd2'
 const MINT_TEXT = '#5d8a49'
 
-// ── Folio secuencial persistente ─────────────────────────────
-// Lee el siguiente número sin escribir; App.jsx lo confirma al guardar
-const peekNextFolio = () => {
-  const n = parseInt(localStorage.getItem('bkl_folio_count') || '0') + 1
-  return `#${n}`
-}
 
 const todayISO  = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 const dash      = (n) => (n > 0 ? `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-')
@@ -104,7 +98,6 @@ function MethodPicker({ value, onChange }) {
 
 // ═══════════════════════════════════════════════════════════════
 export default function NotaDeVenta({ onBack, onSave }) {
-  const [folio]         = useState(peekNextFolio)
   const [fecha, setF]   = useState(todayISO)
   const [hora,  setH]   = useState('')
   const [cli,   setC]   = useState('')
@@ -131,7 +124,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
 
   const save = () => {
     onSave({
-    id: crypto.randomUUID(), folio,
+    id: crypto.randomUUID(),
     fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
     lugarEntrega: lugar, costoEntrega, contacto: tel,
     ubicacion: ubicSel,
@@ -176,7 +169,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
           <ArrowLeft size={16} strokeWidth={2.5} /> Volver
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => printNota({ folio, fecha, hora, cli, lugar, costo, tel, ubicSel, prods, obs, pagos, costoEntrega, totalGeneral, resta })}
+          <button onClick={() => printNota({ folio: '---', fecha, hora, cli, lugar, costo, tel, ubicSel, prods, obs, pagos, costoEntrega, totalGeneral, resta })}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             <FileDown size={14} /> PDF
           </button>
@@ -205,7 +198,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'flex-start', marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'stretch', border: `1px solid ${GRAY_LINE}`, borderRadius: 4, overflow: 'hidden', height: 38, flexShrink: 0 }}>
               <span style={{ background: GRAY, fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', padding: '0 14px', letterSpacing: 0.5, flexShrink: 0 }}>FOLIO</span>
-              <span style={{ display: 'flex', alignItems: 'center', padding: '0 14px', color: BLUE, fontWeight: 800, fontSize: 20, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{folio}</span>
+              <span style={{ display: 'flex', alignItems: 'center', padding: '0 14px', color: BLUE, fontWeight: 800, fontSize: 20, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>---</span>
             </div>
             <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#1a1a22' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>

@@ -3,7 +3,7 @@ import './index.css'
 import { db } from './firebase'
 import {
   collection, onSnapshot,
-  doc, setDoc, deleteDoc,
+  doc, setDoc, deleteDoc, getDoc, runTransaction,
 } from 'firebase/firestore'
 import Dashboard from './Dashboard'
 import NotaDeVenta from './NotaDeVenta'
@@ -116,8 +116,18 @@ export default function App() {
   }, [loading, saldosSemana, notas, gastos, srRows])
 
   // ── CRUD notas ────────────────────────────────────────────────
-  const handleSaveNota = (nota) => {
-    setDoc(doc(db, 'notas', nota.id), nota)
+  const handleSaveNota = async (nota) => {
+    const counterRef = doc(db, 'config', 'folio_counter')
+    const currentNotas = notas
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(counterRef)
+      const current = snap.exists()
+        ? snap.data().current
+        : currentNotas.reduce((max, n) => Math.max(max, parseInt(n.folio?.replace('#', '') || '0')), 0)
+      const nextFolio = current + 1
+      tx.set(counterRef, { current: nextFolio })
+      tx.set(doc(db, 'notas', nota.id), { ...nota, folio: `#${nextFolio}` })
+    })
     setView('historial')
   }
 
