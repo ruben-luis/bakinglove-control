@@ -54,8 +54,10 @@ export function exportarExcel() {
     'Folio', 'Fecha Registro', 'Fecha Entrega', 'Cliente', 'Contacto',
     'Productos', 'Total Pedido', 'Total Pagado', 'Restante',
     ...Array.from({ length: maxPagos }, (_, i) =>
-      maxPagos === 1 ? 'Forma de Pago' : `Pago ${i + 1}`
-    ),
+      maxPagos === 1
+        ? ['Fecha de Pago', 'Forma de Pago']
+        : [`Pago ${i + 1} Fecha`, `Pago ${i + 1} Método`]
+    ).flat(),
   ]
 
   const sortedNotas = [...notas].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
@@ -66,15 +68,16 @@ export function exportarExcel() {
       .map(p => `${p.cantidad ? p.cantidad + 'x ' : ''}${p.descripcion}`)
       .join(' | ')
 
+    // Cada pago ocupa dos columnas: fecha | método+monto
     const pagosArr = (n.pagos || [])
       .filter(p => p.monto)
-      .map(p => {
+      .flatMap(p => {
         const fecha = p.fecha ? p.fecha.split('-').reverse().join('/') : ''
-        return `${fecha ? fecha + ' · ' : ''}${p.metodoPago || ''}: $${Number(p.monto).toFixed(2)}`
+        return [fecha, `${p.metodoPago || ''}: $${Number(p.monto).toFixed(2)}`]
       })
 
-    // Rellenar con vacíos hasta llegar al máximo de columnas
-    while (pagosArr.length < maxPagos) pagosArr.push('')
+    // Rellenar con vacíos hasta maxPagos * 2 columnas
+    while (pagosArr.length < maxPagos * 2) pagosArr.push('')
 
     const totalPedido = num(n.totalPedido)
     const totalPagado = num(n.totalPagado)
@@ -98,7 +101,7 @@ export function exportarExcel() {
   wsIng['!cols'] = [
     { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 16 },
     { wch: 42 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
-    ...Array.from({ length: maxPagos }, () => ({ wch: 26 })),
+    ...Array.from({ length: maxPagos }, () => [{ wch: 14 }, { wch: 24 }]).flat(),
   ]
   if (ingRows.length) applyMoneyFmt(wsIng, ['G', 'H', 'I'], 2, ingRows.length + 1)
   XLSX.utils.book_append_sheet(wb, wsIng, 'Ingresos')
