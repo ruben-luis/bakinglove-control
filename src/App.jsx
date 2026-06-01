@@ -30,7 +30,10 @@ export default function App() {
     }
 
     const unsubNotas = onSnapshot(collection(db, 'notas'), snap => {
-      setNotas(snap.docs.map(d => d.data()))
+      const data = snap.docs.map(d => d.data())
+      setNotas(data)
+      // Sincronizar contador de folio con Firestore
+      localStorage.setItem('bkl_folio_count', String(data.length))
       loaded.notas = true; check()
     })
     const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => {
