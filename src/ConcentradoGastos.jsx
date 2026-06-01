@@ -24,13 +24,14 @@ function fmt(n) {
 
 function emptyGasto(fecha) {
   return {
-    id:        `g_${Date.now()}_${Math.random()}`,
+    id:        crypto.randomUUID(),
     fecha:     fecha || todayISO(),
     concepto:  '',
     monto:     '',
     formaPago: null,
     categoria: null,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }
 }
 
@@ -168,7 +169,7 @@ export default function ConcentradoGastos({ gastos, srRows = [], onSave, onBack 
   const updRow = (i, field, val) => {
     setRows(prev => {
       const next = [...prev]
-      next[i] = { ...next[i], [field]: val }
+      next[i] = { ...next[i], [field]: val, updatedAt: new Date().toISOString() }
       return next
     })
   }

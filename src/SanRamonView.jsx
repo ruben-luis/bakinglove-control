@@ -13,13 +13,14 @@ const localISO = d =>
 
 function emptyRow(fecha) {
   return {
-    id: `sr_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    id: crypto.randomUUID(),
     fecha,
     tipo: null,
     producto: '',
     precio: '',
     metodo: null,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }
 }
 
@@ -87,7 +88,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
   function nextDay() { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 1); switchDate(localISO(d)) }
 
   function updRow(i, field, val) {
-    const next = dayRows.map((r, idx) => idx === i ? { ...r, [field]: val } : r)
+    const next = dayRows.map((r, idx) => idx === i ? { ...r, [field]: val, updatedAt: new Date().toISOString() } : r)
     setDayRows(next)
     persist(next, filterDate, saldoIni)
   }

@@ -4,12 +4,31 @@ import { X, Delete } from 'lucide-react'
 
 const DEFAULT_PIN = '1234'
 
-export function getStoredPin() {
-  return localStorage.getItem('bkl_pin') || DEFAULT_PIN
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-export function savePin(pin) {
-  localStorage.setItem('bkl_pin', pin)
+export async function savePin(pin) {
+  const hash = await sha256(pin)
+  localStorage.setItem('bkl_pin', hash)
+}
+
+// Devuelve true si el PIN ingresado coincide con el almacenado.
+// Maneja migración: si el valor guardado tiene <64 chars es texto plano (instalación antigua).
+export async function verifyPin(entered) {
+  const stored = localStorage.getItem('bkl_pin')
+  if (!stored) {
+    const match = entered === DEFAULT_PIN
+    if (match) await savePin(entered)
+    return match
+  }
+  if (stored.length < 64) {
+    const match = entered === stored
+    if (match) await savePin(entered)
+    return match
+  }
+  return (await sha256(entered)) === stored
 }
 
 export default function PinModal({ title, mode = 'verify', onSuccess, onCancel }) {
@@ -34,10 +53,11 @@ export default function PinModal({ title, mode = 'verify', onSuccess, onCancel }
     }
   }
 
-  function handleComplete(d) {
+  async function handleComplete(d) {
     const entered = d.join('')
     if (mode === 'verify') {
-      if (entered === getStoredPin()) {
+      const ok = await verifyPin(entered)
+      if (ok) {
         onSuccess()
       } else {
         setShaking(true)

@@ -172,6 +172,7 @@ function EditModal({ nota, onClose, onSave, onDelete }) {
       totalPagado,
       resta,
       estado:        totalPagado >= totalGeneral && totalGeneral > 0 ? 'pagado' : 'pendiente',
+      updatedAt:     new Date().toISOString(),
     })
     onClose()
   }

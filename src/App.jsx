@@ -80,7 +80,7 @@ export default function App() {
     if (pinAction === 'nav-concentrado') { setView('concentrado'); setPinAction(null) }
     else if (pinAction === 'nav-gastos') { setView('gastos'); setPinAction(null) }
     else if (pinAction === 'change-verify') { setPinAction('change-new') }
-    else if (pinAction === 'change-new') { savePin(pin); setPinAction(null) }
+    else if (pinAction === 'change-new') { savePin(pin).then(() => setPinAction(null)) }
   }
 
   const pinTitle = pinAction === 'change-new' ? 'Ingresa tu nuevo NIP' : 'Ingresa tu NIP'

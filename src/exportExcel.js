@@ -86,7 +86,7 @@ export function exportarExcel() {
     return [
       n.folio || '',
       n.createdAt ? new Date(n.createdAt).toLocaleDateString('es-MX') : '',
-      n.fecha || n.fechaEntrega || '',
+      n.fechaEntrega || '',
       n.cliente || '',
       n.contacto || '',
       prods,

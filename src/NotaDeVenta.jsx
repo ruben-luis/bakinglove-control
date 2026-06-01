@@ -131,7 +131,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
 
   const save = () => {
     onSave({
-    id: `nota_${Date.now()}`, folio,
+    id: crypto.randomUUID(), folio,
     fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
     lugarEntrega: lugar, costoEntrega, contacto: tel,
     ubicacion: ubicSel,
@@ -143,6 +143,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
     estado: resta <= 0 ? 'pagado' : 'pendiente',
     mes: new Date().getMonth(), año: new Date().getFullYear(),
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   })
   }
 
