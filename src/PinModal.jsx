@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { X, Delete } from 'lucide-react'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from './firebase'
 
 const DEFAULT_PIN = '1234'
+const PIN_REF = () => doc(db, 'config', 'pin')
 
 async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -11,19 +14,41 @@ async function sha256(text) {
 
 export async function savePin(pin) {
   const hash = await sha256(pin)
+  await setDoc(PIN_REF(), { hash })
   localStorage.setItem('bkl_pin', hash)
 }
 
-// Devuelve true si el PIN ingresado coincide con el almacenado.
-// Maneja migración: si el valor guardado tiene <64 chars es texto plano (instalación antigua).
+async function getStoredHash() {
+  // 1. Intentar caché local (rápido, funciona offline)
+  const cached = localStorage.getItem('bkl_pin')
+  if (cached && cached.length === 64) return cached
+
+  // 2. Leer de Firestore (fuente de verdad compartida entre dispositivos)
+  try {
+    const snap = await getDoc(PIN_REF())
+    if (snap.exists()) {
+      const hash = snap.data().hash
+      if (hash) {
+        localStorage.setItem('bkl_pin', hash)
+        return hash
+      }
+    }
+  } catch {
+    // Sin conexión: usar caché aunque sea texto plano
+    if (cached) return cached
+  }
+  return null
+}
+
 export async function verifyPin(entered) {
-  const stored = localStorage.getItem('bkl_pin')
+  const stored = await getStoredHash()
   if (!stored) {
     const match = entered === DEFAULT_PIN
     if (match) await savePin(entered)
     return match
   }
   if (stored.length < 64) {
+    // Texto plano (migración desde versión anterior)
     const match = entered === stored
     if (match) await savePin(entered)
     return match
