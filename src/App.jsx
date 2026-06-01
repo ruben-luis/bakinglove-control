@@ -81,30 +81,36 @@ export default function App() {
       return d >= prevMon && d <= prevSun
     }
 
-    let bklIngEf = 0
+    let bklIngEf = 0, bklIngBanco = 0
     notas.filter(n => inPrev(n.createdAt)).forEach(n =>
       (n.pagos || []).forEach(p => {
-        if (p.metodoPago === 'Efectivo') bklIngEf += parseFloat(p.monto) || 0
+        const m = parseFloat(p.monto) || 0
+        if (p.metodoPago === 'Efectivo') bklIngEf    += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia') bklIngBanco += m
       })
     )
 
-    let bklGastoEf = 0
+    let bklGastoEf = 0, bklGastoBanco = 0
     gastos.filter(g => inPrev(g.fecha || g.createdAt)).forEach(g => {
-      if (g.formaPago === 'Efectivo') bklGastoEf += parseFloat(g.monto) || 0
+      const m = parseFloat(g.monto) || 0
+      if (g.formaPago === 'Efectivo')                                      bklGastoEf    += m
+      if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia')    bklGastoBanco += m
     })
 
-    let srVentasEf = 0, srSalidasEf = 0
+    let srVentasEf = 0, srSalidasEf = 0, srVentasBanco = 0, srSalidasBanco = 0
     srRows.filter(r => r.fecha && inPrev(r.fecha)).forEach(r => {
       const m = parseFloat(r.precio) || 0
-      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') srVentasEf  += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo') srSalidasEf += m
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') srVentasEf    += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo') srSalidasEf   += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco')    srVentasBanco  += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco')    srSalidasBanco += m
     })
 
     setDoc(doc(db, 'saldos_semana', currentKey), {
       id:          currentKey,
-      efectivoBkl: (prevSaldo.efectivoBkl || 0) + bklIngEf - bklGastoEf,
-      efectivoSr:  (prevSaldo.efectivoSr  || 0) + srVentasEf - srSalidasEf,
-      bancos:      prevSaldo.bancos || 0,
+      efectivoBkl: (prevSaldo.efectivoBkl || 0) + bklIngEf    - bklGastoEf,
+      efectivoSr:  (prevSaldo.efectivoSr  || 0) + srVentasEf  - srSalidasEf,
+      bancos:      (prevSaldo.bancos      || 0) + bklIngBanco + srVentasBanco - bklGastoBanco - srSalidasBanco,
       updatedAt:   new Date().toISOString(),
     })
   }, [loading, saldosSemana, notas, gastos, srRows])

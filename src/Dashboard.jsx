@@ -254,7 +254,7 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
   const { bklGanaste, bklGastaste, srVentas, srSalidas } = stats
   const bklTienes   = bklGanaste - bklGastaste + (saldoSemana.efectivoBkl || 0)
   const srNeto      = srVentas - srSalidas + (saldoSemana.efectivoSr || 0)
-  const totalTienes = bklTienes + srNeto
+  const totalTienes = bklTienes + srNeto + (saldoSemana.bancos || 0)
   const positivo    = totalTienes >= 0
 
   useEffect(() => { setRainKey(k => k + 1) }, [bklGanaste, bklGastaste, srVentas, srSalidas])
