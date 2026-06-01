@@ -19,11 +19,7 @@ export async function savePin(pin) {
 }
 
 async function getStoredHash() {
-  // 1. Intentar caché local (rápido, funciona offline)
-  const cached = localStorage.getItem('bkl_pin')
-  if (cached && cached.length === 64) return cached
-
-  // 2. Leer de Firestore (fuente de verdad compartida entre dispositivos)
+  // Firestore es la fuente de verdad — leer siempre para reflejar cambios de otros dispositivos
   try {
     const snap = await getDoc(PIN_REF())
     if (snap.exists()) {
@@ -34,7 +30,8 @@ async function getStoredHash() {
       }
     }
   } catch {
-    // Sin conexión: usar caché aunque sea texto plano
+    // Sin conexión: usar caché local como respaldo
+    const cached = localStorage.getItem('bkl_pin')
     if (cached) return cached
   }
   return null
