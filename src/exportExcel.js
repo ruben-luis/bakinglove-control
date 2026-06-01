@@ -68,7 +68,10 @@ export function exportarExcel() {
 
     const pagosArr = (n.pagos || [])
       .filter(p => p.monto)
-      .map(p => `${p.metodoPago || ''}: $${Number(p.monto).toFixed(2)}`)
+      .map(p => {
+        const fecha = p.fecha ? p.fecha.split('-').reverse().join('/') : ''
+        return `${fecha ? fecha + ' · ' : ''}${p.metodoPago || ''}: $${Number(p.monto).toFixed(2)}`
+      })
 
     // Rellenar con vacíos hasta llegar al máximo de columnas
     while (pagosArr.length < maxPagos) pagosArr.push('')
