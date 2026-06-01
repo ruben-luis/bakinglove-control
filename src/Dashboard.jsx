@@ -8,8 +8,6 @@ import {
   Lock, KeyRound, Store,
 } from 'lucide-react'
 import PinModal from './PinModal'
-import { db } from './firebase'
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore'
 
 // ═══════════════════════════════════════════════════════════════
 // ÍCONOS FLOTANTES DE FONDO
@@ -448,28 +446,10 @@ const buildModules = (onNavigate) => [
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 
-async function fixFolios() {
-  const snap = await getDocs(collection(db, 'notas'))
-  const notas = snap.docs.map(d => ({ ref: d.ref, ...d.data() }))
-  notas.sort((a, b) => {
-    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
-    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
-    return ta - tb
-  })
-  const batch = writeBatch(db)
-  notas.forEach((nota, i) => {
-    batch.update(nota.ref, { folio: `#${i + 1}` })
-  })
-  batch.set(doc(db, 'config', 'folio_counter'), { current: notas.length })
-  await batch.commit()
-  return notas.length
-}
-
 export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], saldosSemana = [], onSrChange, onChangePinRequest }) {
   const modules = buildModules(onNavigate)
   const [corteUnlocked, setCorteUnlocked] = useState(false)
   const [showCortePin,  setShowCortePin]  = useState(false)
-  const [fixStatus,     setFixStatus]     = useState('')
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-cream">
@@ -515,30 +495,6 @@ export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = 
               </button>
             </div>
           )}
-          {/* TEMPORAL — borrar después de usar */}
-          <div style={{ marginTop: 10 }}>
-            <button
-              onClick={async () => {
-                if (!window.confirm('¿Reasignar folios de todas las notas por orden de creación? Solo se toca el campo folio.')) return
-                setFixStatus('Procesando…')
-                try {
-                  const total = await fixFolios()
-                  setFixStatus(`✓ ${total} notas actualizadas`)
-                } catch (e) {
-                  setFixStatus(`Error: ${e.message}`)
-                }
-              }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#888', fontSize: 11, fontWeight: 700,
-                textDecoration: 'underline', padding: '2px 4px',
-              }}
-            >
-              🔧 Reparar folios
-            </button>
-            {fixStatus && <div style={{ fontSize: 11, marginTop: 4, color: '#555' }}>{fixStatus}</div>}
-          </div>
         </footer>
       </div>
 
