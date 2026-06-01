@@ -55,8 +55,8 @@ export function exportarExcel() {
     'Productos', 'Total Pedido', 'Total Pagado', 'Restante',
     ...Array.from({ length: maxPagos }, (_, i) =>
       maxPagos === 1
-        ? ['Fecha de Pago', 'Forma de Pago']
-        : [`Pago ${i + 1} Fecha`, `Pago ${i + 1} Método`]
+        ? ['Fecha de Pago', 'Forma de Pago', 'Monto']
+        : [`Pago ${i + 1} Fecha`, `Pago ${i + 1} Método`, `Pago ${i + 1} Monto`]
     ).flat(),
   ]
 
@@ -68,16 +68,16 @@ export function exportarExcel() {
       .map(p => `${p.cantidad ? p.cantidad + 'x ' : ''}${p.descripcion}`)
       .join(' | ')
 
-    // Cada pago ocupa dos columnas: fecha | método+monto
+    // Cada pago ocupa tres columnas: fecha | método | monto
     const pagosArr = (n.pagos || [])
       .filter(p => p.monto)
       .flatMap(p => {
         const fecha = p.fecha ? p.fecha.split('-').reverse().join('/') : ''
-        return [fecha, `${p.metodoPago || ''}: $${Number(p.monto).toFixed(2)}`]
+        return [fecha, p.metodoPago || '', num(p.monto)]
       })
 
-    // Rellenar con vacíos hasta maxPagos * 2 columnas
-    while (pagosArr.length < maxPagos * 2) pagosArr.push('')
+    // Rellenar con vacíos hasta maxPagos * 3 columnas
+    while (pagosArr.length < maxPagos * 3) pagosArr.push('')
 
     const totalPedido = num(n.totalPedido)
     const totalPagado = num(n.totalPagado)
@@ -101,9 +101,15 @@ export function exportarExcel() {
   wsIng['!cols'] = [
     { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 16 },
     { wch: 42 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
-    ...Array.from({ length: maxPagos }, () => [{ wch: 14 }, { wch: 24 }]).flat(),
+    ...Array.from({ length: maxPagos }, () => [{ wch: 14 }, { wch: 18 }, { wch: 13 }]).flat(),
   ]
-  if (ingRows.length) applyMoneyFmt(wsIng, ['G', 'H', 'I'], 2, ingRows.length + 1)
+  // Columnas de monto por pago: índice base 9, cada pago ocupa 3 cols, monto es la 3ra
+  const colLetter = n => { let s='', x=n+1; while(x>0){s=String.fromCharCode(64+(x%26||26))+s;x=Math.floor((x-1)/26)}; return s }
+  const montosCols = Array.from({ length: maxPagos }, (_, i) => colLetter(9 + i * 3 + 2))
+  if (ingRows.length) {
+    applyMoneyFmt(wsIng, ['G', 'H', 'I'], 2, ingRows.length + 1)
+    applyMoneyFmt(wsIng, montosCols, 2, ingRows.length + 1)
+  }
   XLSX.utils.book_append_sheet(wb, wsIng, 'Ingresos')
 
   // ── Hoja 2: GASTOS ───────────────────────────────────────────
