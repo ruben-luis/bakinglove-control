@@ -109,6 +109,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
   const [prods, setProds] = useState([emptyP(), emptyP()])
   const [obs,   setObs]   = useState(['', ''])
   const [pagos, setPagos] = useState([emptyG(), emptyG(), emptyG()])
+  const [saving, setSaving] = useState(false)
 
   const costoEntrega = parseFloat(costo) || 0
   const totalProds   = useMemo(() =>
@@ -122,22 +123,28 @@ export default function NotaDeVenta({ onBack, onSave }) {
   const updG = (i, f, v) => setPagos(a => { const n = [...a]; n[i] = { ...n[i], [f]: v }; return n })
   const updO = (i, v)    => setObs(a  => { const n = [...a]; n[i] = v; return n })
 
-  const save = () => {
-    onSave({
-    id: crypto.randomUUID(),
-    fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
-    lugarEntrega: lugar, costoEntrega, contacto: tel,
-    ubicacion: ubicSel,
-    productos: prods.map(p => ({ ...p, total: (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0) })),
-    observaciones: obs,
-    pagos: pagos.map(p => ({ monto: p.monto, fecha: p.fecha, metodoPago: p.met })),
-    totalProductos: totalProds, totalPedido: totalGeneral,
-    totalPagado: totalG, resta,
-    estado: resta <= 0 ? 'pagado' : 'pendiente',
-    mes: new Date().getMonth(), año: new Date().getFullYear(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  })
+  const save = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await onSave({
+        id: crypto.randomUUID(),
+        fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
+        lugarEntrega: lugar, costoEntrega, contacto: tel,
+        ubicacion: ubicSel,
+        productos: prods.map(p => ({ ...p, total: (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0) })),
+        observaciones: obs,
+        pagos: pagos.map(p => ({ monto: p.monto, fecha: p.fecha, metodoPago: p.met })),
+        totalProductos: totalProds, totalPedido: totalGeneral,
+        totalPagado: totalG, resta,
+        estado: resta <= 0 ? 'pagado' : 'pendiente',
+        mes: new Date().getMonth(), año: new Date().getFullYear(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const DT = { borderCollapse: 'collapse', width: '100%', border: `1px solid ${NAVY}` }
@@ -173,9 +180,9 @@ export default function NotaDeVenta({ onBack, onSave }) {
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             <FileDown size={14} /> PDF
           </button>
-          <button onClick={save}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#2b2731', color: '#FBFAFB', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-            <Save size={14} /> Guardar
+          <button onClick={save} disabled={saving}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: saving ? '#888' : '#2b2731', color: '#FBFAFB', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer' }}>
+            <Save size={14} /> {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -417,9 +424,9 @@ export default function NotaDeVenta({ onBack, onSave }) {
           style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 700, fontSize: 14, color: '#2b2731', background: 'rgba(255,255,255,.7)', border: '1px solid rgba(0,0,0,.2)', cursor: 'pointer', fontFamily: 'inherit' }}>
           Cancelar
         </button>
-        <button onClick={save}
-          style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 700, fontSize: 14, color: '#FBFAFB', background: '#2b2731', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-          Guardar Nota
+        <button onClick={save} disabled={saving}
+          style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 700, fontSize: 14, color: '#FBFAFB', background: saving ? '#888' : '#2b2731', border: 'none', cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+          {saving ? 'Guardando…' : 'Guardar Nota'}
         </button>
       </div>
 
