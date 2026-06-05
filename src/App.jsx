@@ -135,8 +135,11 @@ export default function App() {
     setDoc(doc(db, 'notas', notaEditada.id), notaEditada)
   }
 
-  const handleDeleteNota = (notaId) => {
-    deleteDoc(doc(db, 'notas', notaId))
+  const handleDeleteNota = async (notaId) => {
+    await deleteDoc(doc(db, 'notas', notaId))
+    const remaining = notas.filter(n => n.id !== notaId)
+    const maxFolio  = remaining.reduce((max, n) => Math.max(max, parseInt(n.folio?.replace('#', '') || '0')), 0)
+    await setDoc(doc(db, 'config', 'folio_counter'), { current: maxFolio })
   }
 
   // ── CRUD gastos ───────────────────────────────────────────────
