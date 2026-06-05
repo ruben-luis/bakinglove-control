@@ -98,13 +98,14 @@ export default function SanRamonView({ onBack, onSrChange }) {
   }, [])
 
   function persist(rows, fecha) {
-    const filled = rows.filter(r => r.producto || r.precio || r.tipo)
-    const others = allRowsRef.current.filter(r => r.fecha !== fecha)
-    const newAll = [...others, ...filled]
+    const filled    = rows.filter(r => r.producto || r.precio || r.tipo)
+    const others    = allRowsRef.current.filter(r => r.fecha !== fecha)
+    const prevForDay = allRowsRef.current.filter(r => r.fecha === fecha)
+    const newAll    = [...others, ...filled]
     allRowsRef.current = newAll
 
-    const oldForDay = allRowsRef.current.filter(r => r.fecha === fecha && !filled.find(f => f.id === r.id))
-    oldForDay.forEach(r => deleteDoc(doc(db, 'sanramon_rows', r.id)))
+    const toDelete = prevForDay.filter(r => !filled.find(f => f.id === r.id))
+    toDelete.forEach(r => deleteDoc(doc(db, 'sanramon_rows', r.id)))
     filled.forEach(r => setDoc(doc(db, 'sanramon_rows', r.id), r))
 
     onSrChange?.(newAll)
