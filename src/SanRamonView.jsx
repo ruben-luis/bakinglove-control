@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Save, Check } from 'lucide-react'
 import { db } from './firebase'
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore'
 
@@ -76,6 +76,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
   const [dayRows,    setDayRows]    = useState(() => padRows([], todayISO()))
   const [saldoIni,   setSaldoIni]   = useState('')
   const [ready,      setReady]      = useState(false)
+  const [dirty,      setDirty]      = useState(false)
 
   // Carga inicial desde Firestore
   useEffect(() => {
@@ -111,6 +112,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
 
   function switchDate(newDate) {
     persist(dayRows, filterDate)
+    setDirty(false)
     setFilterDate(newDate)
     setDayRows(padRows(allRowsRef.current.filter(r => r.fecha === newDate), newDate))
     const ini = computeSaldoInicial(newDate, saldosRef.current, allRowsRef.current)
@@ -123,7 +125,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
   function updRow(i, field, val) {
     const next = dayRows.map((r, idx) => idx === i ? { ...r, [field]: val, updatedAt: new Date().toISOString() } : r)
     setDayRows(next)
-    persist(next, filterDate)
+    setDirty(true)
   }
 
   function toggleTipo(i, tipo) { updRow(i, 'tipo', dayRows[i].tipo === tipo ? null : tipo) }
@@ -132,7 +134,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
   function addRow() {
     const next = [...dayRows, emptyRow(filterDate)]
     setDayRows(next)
-    persist(next, filterDate)
+    setDirty(true)
   }
 
   function deleteRow(i) {
@@ -140,7 +142,12 @@ export default function SanRamonView({ onBack, onSrChange }) {
       ? dayRows.map((r, idx) => idx === i ? emptyRow(filterDate) : r)
       : dayRows.filter((_, idx) => idx !== i)
     setDayRows(next)
-    persist(next, filterDate)
+    setDirty(true)
+  }
+
+  function handleGuardar() {
+    persist(dayRows, filterDate)
+    setDirty(false)
   }
 
   const totalVentas  = dayRows.reduce((s, r) => r.tipo === 'venta'  ? s + (parseFloat(r.precio) || 0) : s, 0)
@@ -392,6 +399,33 @@ export default function SanRamonView({ onBack, onSrChange }) {
             <Plus size={12} strokeWidth={2.5} /> Agregar fila
           </button>
         </div>
+
+        {/* Guardar */}
+        <button
+          onClick={handleGuardar}
+          style={{
+            width: '100%',
+            padding: '16px',
+            borderRadius: 16,
+            border: '2px solid #2b2731',
+            background: dirty ? '#1f2b5e' : '#f4f3f6',
+            color: dirty ? '#fff' : '#aaa',
+            fontSize: 14,
+            fontWeight: 800,
+            cursor: dirty ? 'pointer' : 'default',
+            boxShadow: dirty ? '4px 4px 0 #2b2731' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.25s',
+          }}
+        >
+          {dirty
+            ? <><Save size={16} strokeWidth={2.5} /> Guardar cambios</>
+            : <><Check size={16} strokeWidth={2.5} /> Todo guardado</>
+          }
+        </button>
 
         <button
           onClick={onBack}
