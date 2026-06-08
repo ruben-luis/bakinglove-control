@@ -21,7 +21,8 @@ function weekLabel(ts) {
 }
 
 function num(v) {
-  return Number(v || 0)
+  const n = parseFloat(v)
+  return isNaN(n) ? 0 : n
 }
 
 function applyMoneyFmt(ws, cols, rowStart, rowEnd) {

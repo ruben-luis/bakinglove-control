@@ -98,7 +98,11 @@ export default function SanRamonView({ onBack, onSrChange }) {
   }, [])
 
   function persist(rows, fecha) {
-    const filled    = rows.filter(r => r.producto || r.precio || r.tipo)
+    const sanitize = r => {
+      const n = parseFloat(r.precio)
+      return { ...r, precio: isNaN(n) ? '' : n.toFixed(2) }
+    }
+    const filled    = rows.filter(r => r.producto || r.precio || r.tipo).map(sanitize)
     const others    = allRowsRef.current.filter(r => r.fecha !== fecha)
     const prevForDay = allRowsRef.current.filter(r => r.fecha === fecha)
     const newAll    = [...others, ...filled]
