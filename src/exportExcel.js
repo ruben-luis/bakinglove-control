@@ -39,7 +39,7 @@ function applyMoneyFmt(ws, cols, rowStart, rowEnd) {
 // ── Exportar ────────────────────────────────────────────────────
 // notas, gastos y srRows se reciben desde el componente (datos de Firestore)
 
-export function exportarExcel(notas = [], gastos = [], srRows = []) {
+export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana = []) {
   const wb = XLSX.utils.book_new()
 
   // ── Hoja 1: INGRESOS (Notas de venta) ─────────────────────────
@@ -195,17 +195,30 @@ export function exportarExcel(notas = [], gastos = [], srRows = []) {
 
   const sortedWeeks = [...weekMap.entries()].sort((a, b) => a[0] - b[0])
 
-  const balHead = ['Semana', 'Ingresos BKL', 'Gastos BKL', 'Balance BKL', 'Ventas SR', 'Salidas SR', 'Balance SR', 'Balance Total']
-  const balRows = sortedWeeks.map(([ts, d]) => [
-    weekLabel(ts),
-    d.ingBKL,
-    d.gastBKL,
-    d.ingBKL - d.gastBKL,
-    d.ingSR,
-    d.salidaSR,
-    d.ingSR - d.salidaSR,
-    (d.ingBKL - d.gastBKL) + (d.ingSR - d.salidaSR),
-  ])
+  // Semilla = entrada más antigua en saldos_semana
+  const seed = saldosSemana.reduce((earliest, s) =>
+    !earliest || s.id < earliest.id ? s : earliest
+  , null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
+  const seedTotal = (seed.efectivoBkl || 0) + (seed.efectivoSr || 0) + (seed.bancos || 0)
+
+  const balHead = ['Semana', 'Ingresos BKL', 'Gastos BKL', 'Balance BKL', 'Ventas SR', 'Salidas SR', 'Balance SR', 'Flujo Neto', 'Saldo Final']
+
+  let saldoAcum = seedTotal
+  const balRows = sortedWeeks.map(([ts, d]) => {
+    const flujoNeto = (d.ingBKL - d.gastBKL) + (d.ingSR - d.salidaSR)
+    saldoAcum += flujoNeto
+    return [
+      weekLabel(ts),
+      d.ingBKL,
+      d.gastBKL,
+      d.ingBKL - d.gastBKL,
+      d.ingSR,
+      d.salidaSR,
+      d.ingSR - d.salidaSR,
+      flujoNeto,
+      saldoAcum,
+    ]
+  })
 
   const totIng  = sortedWeeks.reduce((s, [, d]) => s + d.ingBKL, 0)
   const totGast = sortedWeeks.reduce((s, [, d]) => s + d.gastBKL, 0)
@@ -214,17 +227,18 @@ export function exportarExcel(notas = [], gastos = [], srRows = []) {
 
   const balData = [
     balHead,
+    ['Semilla inicial', '', '', '', '', '', '', '', seedTotal],
     ...balRows,
-    ['', '', '', '', '', '', '', ''],
-    ['TOTAL GENERAL', totIng, totGast, totIng - totGast, totSRV, totSRS, totSRV - totSRS, (totIng - totGast) + (totSRV - totSRS)],
+    ['', '', '', '', '', '', '', '', ''],
+    ['TOTAL GENERAL', totIng, totGast, totIng - totGast, totSRV, totSRS, totSRV - totSRS, (totIng - totGast) + (totSRV - totSRS), saldoAcum],
   ]
 
   const wsBal = XLSX.utils.aoa_to_sheet(balData)
   wsBal['!cols'] = [
-    { wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+    { wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 },
   ]
   const lastBal = balData.length
-  applyMoneyFmt(wsBal, ['B','C','D','E','F','G','H'], 2, lastBal)
+  applyMoneyFmt(wsBal, ['B','C','D','E','F','G','H','I'], 2, lastBal)
   XLSX.utils.book_append_sheet(wb, wsBal, 'Balance General')
 
   // ── Descargar ────────────────────────────────────────────────
