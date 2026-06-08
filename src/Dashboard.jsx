@@ -231,10 +231,12 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       return d >= mon && d <= sun
     }
 
-    // BKL — separado por método
+    // BKL — separado por método, usando fecha del pago (no de la nota)
     let bklCashIng = 0, bklBankIng = 0
-    notas.filter(n => inWeek(n.createdAt)).forEach(n =>
+    notas.forEach(n =>
       (n.pagos || []).forEach(p => {
+        const pagoFecha = p.fecha || n.createdAt
+        if (!inWeek(pagoFecha)) return
         const m = parseFloat(p.monto) || 0
         if (p.metodoPago === 'Efectivo')                                        bklCashIng += m
         if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')    bklBankIng += m

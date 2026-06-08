@@ -170,10 +170,13 @@ export function exportarExcel(notas = [], gastos = [], srRows = []) {
   const weekMap = new Map()
 
   sortedNotas.forEach(n => {
-    if (!n.createdAt) return
-    const { key } = getWeekBounds(n.createdAt)
-    if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
-    weekMap.get(key).ingBKL += num(n.totalPagado)
+    ;(n.pagos || []).forEach(p => {
+      const pagoDate = p.fecha || n.createdAt
+      if (!pagoDate) return
+      const { key } = getWeekBounds(pagoDate.length === 10 ? pagoDate + 'T12:00:00' : pagoDate)
+      if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
+      weekMap.get(key).ingBKL += num(p.monto)
+    })
   })
 
   gastos.filter(g => g.monto).forEach(g => {

@@ -82,8 +82,10 @@ export default function App() {
     }
 
     let bklIngEf = 0, bklIngBanco = 0
-    notas.filter(n => inPrev(n.createdAt)).forEach(n =>
+    notas.forEach(n =>
       (n.pagos || []).forEach(p => {
+        const pagoFecha = p.fecha || n.createdAt
+        if (!inPrev(pagoFecha)) return
         const m = parseFloat(p.monto) || 0
         if (p.metodoPago === 'Efectivo') bklIngEf    += m
         if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia') bklIngBanco += m
