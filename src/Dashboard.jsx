@@ -213,7 +213,8 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
   const [rainKey, setRainKey] = useState(0)
 
   const {
-    saldoInicioEfBkl, saldoInicioEfSr, saldoInicioBancos,
+    saldoInicioEfBkl, saldoInicioEfSr, seedBancos,
+    bklBancosAcum, srBancosAcum,
     bklCashIng, bklBankIng, bklCashGast, bklBankGast,
     srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
     bklGanaste, bklGastaste, srVentas, srSalidas,
@@ -267,9 +268,9 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       if (r.tipo === 'salida' && r.metodo === 'Banco')    prevSrBancoS += m
     })
 
-    const saldoInicioEfBkl  = (seed.efectivoBkl || 0) + prevBklEf    - prevBklEfGast
-    const saldoInicioEfSr   = (seed.efectivoSr  || 0) + prevSrEfV    - prevSrEfS
-    const saldoInicioBancos = (seed.bancos      || 0) + prevBklBanco + prevSrBancoV - prevBklBancoGast - prevSrBancoS
+    const saldoInicioEfBkl = (seed.efectivoBkl || 0) + prevBklEf  - prevBklEfGast
+    const saldoInicioEfSr  = (seed.efectivoSr  || 0) + prevSrEfV  - prevSrEfS
+    const seedBancos       = seed.bancos || 0
 
     // ── Movimientos de ESTA semana ─────────────────────────────────
     let bklCashIng = 0, bklBankIng = 0, bklCashGast = 0, bklBankGast = 0
@@ -303,8 +304,13 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       if (r.tipo === 'salida' && r.metodo === 'Banco')    srBankSalidas += m
     })
 
+    // Bancos acumulados por sección (igual que efectivo: histórico + esta semana)
+    const bklBancosAcum = prevBklBanco + bklBankIng - prevBklBancoGast - bklBankGast
+    const srBancosAcum  = prevSrBancoV + srBankVentas - prevSrBancoS  - srBankSalidas
+
     return {
-      saldoInicioEfBkl, saldoInicioEfSr, saldoInicioBancos,
+      saldoInicioEfBkl, saldoInicioEfSr, seedBancos,
+      bklBancosAcum, srBancosAcum,
       bklCashIng, bklBankIng, bklCashGast, bklBankGast,
       srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
       bklGanaste:  bklCashIng + bklBankIng,
@@ -316,9 +322,9 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
 
   const bklEfectivo = saldoInicioEfBkl + bklCashIng   - bklCashGast
   const srEfectivo  = saldoInicioEfSr  + srCashVentas - srCashSalidas
-  const bklBancos   = bklBankIng - bklBankGast
-  const srBancos    = srBankVentas - srBankSalidas
-  const totalBancos = saldoInicioBancos + bklBankIng + srBankVentas - bklBankGast - srBankSalidas
+  const bklBancos   = bklBancosAcum   // acumulado histórico + esta semana
+  const srBancos    = srBancosAcum    // acumulado histórico + esta semana
+  const totalBancos = seedBancos + bklBancosAcum + srBancosAcum
   const totalTienes = bklEfectivo + srEfectivo + totalBancos
   const positivo    = totalTienes >= 0
 
