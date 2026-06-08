@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, FileDown, Sheet } from 'lucide-react'
 import { printNota } from './printNota'
 import { exportarExcel } from './exportExcel'
@@ -77,11 +77,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
   const now  = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [filterDate, setFilterDate] = useState(todayISO)
-  const week    = getWeekRange(refDate)
-  const weekKey = getMondayISO(refDate)
-  const saldoSemana = saldosSemana.find(s => s.id === weekKey) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
-  const saldoInicialEfectivo = (saldoSemana.efectivoBkl || 0) + (saldoSemana.efectivoSr || 0)
-  const saldoInicialBancos   = saldoSemana.bancos || 0
+  const week = getWeekRange(refDate)
 
   const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(localISO(d)) }
@@ -93,68 +89,124 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]} ${d.getFullYear()}`
   }
 
+  // Tabla: notas del mes filtradas por día (por createdAt)
   const notasMes = notas.filter(n => {
     const d = new Date(n.createdAt)
     return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
   })
+  const notasDia   = notasMes.filter(n => { const d = new Date(n.createdAt); return localISO(d) === filterDate })
+  const srVentasDia = (srRows || []).filter(r => r.tipo === 'venta' && r.fecha === filterDate)
 
-  const notasDia = notasMes.filter(n => { const d = new Date(n.createdAt); return localISO(d) === filterDate })
+  // Cálculo dinámico: saldo inicial (semilla + historial) + acumulado semanal
+  const { saldoInicialEfectivo, saldoInicialBancos, acum, gastoAcum } = useMemo(() => {
+    const tmp = new Date(refDate)
+    const dow = tmp.getDay()
+    const wStart = new Date(tmp); wStart.setDate(tmp.getDate() - ((dow + 6) % 7)); wStart.setHours(0, 0, 0, 0)
+    const wEnd   = new Date(wStart); wEnd.setDate(wStart.getDate() + 6); wEnd.setHours(23, 59, 59, 999)
 
-  const gastosMes = gastos.filter(g => {
-    const d = new Date(g.createdAt)
-    return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
-  })
+    const parseF   = (f) => new Date(f.length === 10 ? f + 'T12:00:00' : f)
+    const beforeWk = (f) => { if (!f) return false; return parseF(f) < wStart }
+    const inWk     = (f) => { if (!f) return false; const d = parseF(f); return d >= wStart && d <= wEnd }
 
-  // SR ventas del mes y del día
-  const srVentasMes = (srRows || []).filter(r => {
-    if (r.tipo !== 'venta') return false
-    const d = new Date(r.fecha + 'T12:00:00')
-    return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
-  })
-  const srVentasDia = srVentasMes.filter(r => r.fecha === filterDate)
+    // Semilla = entrada más antigua en saldos_semana
+    const seed = saldosSemana.reduce((earliest, s) =>
+      !earliest || s.id < earliest.id ? s : earliest
+    , null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
 
-  // Acumulado de ingresos por método
-  const acum = { Terminal: 0, Transferencia: 0, Efectivo: 0 }
-  notasMes.forEach(n => {
-    n.pagos.forEach(p => {
-      if (p.metodoPago && acum[p.metodoPago] !== undefined) {
-        acum[p.metodoPago] += parseFloat(p.monto) || 0
-      }
+    // Acumular TODO antes de esta semana
+    let prevBklEf=0, prevBklBanco=0, prevBklEfGast=0, prevBklBancoGast=0
+    let prevSrEfV=0, prevSrBancoV=0, prevSrEfS=0, prevSrBancoS=0
+
+    notas.forEach(n => (n.pagos||[]).forEach(p => {
+      const pf = p.fecha || n.createdAt
+      if (!beforeWk(pf)) return
+      const m = parseFloat(p.monto) || 0
+      if (p.metodoPago === 'Efectivo') prevBklEf += m
+      if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia') prevBklBanco += m
+    }))
+    gastos.forEach(g => {
+      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
+      if (!beforeWk(f)) return
+      const m = parseFloat(g.monto) || 0
+      if (g.formaPago === 'Efectivo') prevBklEfGast += m
+      if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') prevBklBancoGast += m
     })
-  })
-  // SR ventas al acumulado
-  srVentasMes.forEach(r => {
-    const m = parseFloat(r.precio) || 0
-    if (r.metodo === 'Banco') acum.Terminal += m
-    else if (r.metodo === 'Efectivo') acum.Efectivo += m
-  })
+    srRows.forEach(r => {
+      if (!r.fecha || !beforeWk(r.fecha)) return
+      const m = parseFloat(r.precio) || 0
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') prevSrEfV    += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco')    prevSrBancoV += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo') prevSrEfS    += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco')    prevSrBancoS += m
+    })
 
-  // Acumulado de gastos por método
-  const gastoAcum = { Tarjeta: 0, Transferencia: 0, Efectivo: 0 }
-  gastosMes.forEach(g => {
-    const m = parseFloat(g.monto) || 0
-    if (g.formaPago && gastoAcum[g.formaPago] !== undefined) gastoAcum[g.formaPago] += m
-  })
+    const saldoEfBkl = (seed.efectivoBkl||0) + prevBklEf    - prevBklEfGast
+    const saldoEfSr  = (seed.efectivoSr||0)  + prevSrEfV    - prevSrEfS
+    const saldoBk    = (seed.bancos||0) + prevBklBanco - prevBklBancoGast + prevSrBancoV - prevSrBancoS
 
-  // Ingresos
+    // Acumulado ingresos: pagos de ESTA semana (por fecha del pago)
+    const acum = { Terminal: 0, Transferencia: 0, Efectivo: 0 }
+    notas.forEach(n => (n.pagos||[]).forEach(p => {
+      const pf = p.fecha || n.createdAt
+      if (!inWk(pf)) return
+      const m = parseFloat(p.monto) || 0
+      if (p.metodoPago === 'Terminal')      acum.Terminal      += m
+      if (p.metodoPago === 'Transferencia') acum.Transferencia += m
+      if (p.metodoPago === 'Efectivo')      acum.Efectivo      += m
+    }))
+    srRows.forEach(r => {
+      if (r.tipo !== 'venta' || !r.fecha || !inWk(r.fecha)) return
+      const m = parseFloat(r.precio) || 0
+      if (r.metodo === 'Banco')         acum.Terminal  += m
+      else if (r.metodo === 'Efectivo') acum.Efectivo  += m
+    })
+
+    // Acumulado gastos de ESTA semana
+    const gastoAcum = { Tarjeta: 0, Transferencia: 0, Efectivo: 0 }
+    gastos.forEach(g => {
+      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
+      if (!inWk(f)) return
+      const m = parseFloat(g.monto) || 0
+      if (g.formaPago === 'Tarjeta')       gastoAcum.Tarjeta       += m
+      if (g.formaPago === 'Transferencia') gastoAcum.Transferencia += m
+      if (g.formaPago === 'Efectivo')      gastoAcum.Efectivo      += m
+    })
+    srRows.forEach(r => {
+      if (r.tipo !== 'salida' || !r.fecha || !inWk(r.fecha)) return
+      const m = parseFloat(r.precio) || 0
+      if (r.metodo === 'Banco')         gastoAcum.Tarjeta  += m
+      else if (r.metodo === 'Efectivo') gastoAcum.Efectivo += m
+    })
+
+    return {
+      saldoInicialEfectivo: saldoEfBkl + saldoEfSr,
+      saldoInicialBancos:   saldoBk,
+      acum, gastoAcum,
+    }
+  }, [notas, gastos, srRows, saldosSemana, refDate])
+
+  // Totales derivados
   const ingBancos   = acum.Terminal + acum.Transferencia
   const ingEfectivo = acum.Efectivo
-
-  // Gastos
   const gastoBancos   = gastoAcum.Tarjeta + gastoAcum.Transferencia
   const gastoEfectivo = gastoAcum.Efectivo
-
-  // Saldo neto (ingresos - gastos)
-  const totalBancos   = acum.Terminal + acum.Transferencia  // para acumulado
-  const totalEfectivo = acum.Efectivo
+  const totalBancos   = ingBancos
+  const totalEfectivo = ingEfectivo
   const totalGeneral  = totalBancos + totalEfectivo
-
   const saldoBancos   = saldoInicialBancos   + ingBancos   - gastoBancos
   const saldoEfectivo = saldoInicialEfectivo + ingEfectivo - gastoEfectivo
   const saldoTotal    = saldoBancos + saldoEfectivo
 
-  const prevWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d) }
-  const nextWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d) }
+  const prevWeek = () => {
+    const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d)
+    const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+    setFilterDate(localISO(mon))
+  }
+  const nextWeek = () => {
+    const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d)
+    const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+    setFilterDate(localISO(mon))
+  }
 
   const rows = notasDia.map((n, i) => ({ idx: i + 1, nota: n, type: 'nota' }))
   const srRows2 = srVentasDia.map((r, i) => ({ idx: rows.length + i + 1, sr: r, type: 'sr' }))

@@ -129,8 +129,16 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onS
 
   const week = getWeekRange(refDate)
 
-  const prevWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d) }
-  const nextWeek = () => { const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d) }
+  const prevWeek = () => {
+    const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d)
+    const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+    setFilterDate(localISO(mon))
+  }
+  const nextWeek = () => {
+    const d = new Date(refDate); d.setDate(d.getDate() + 7); setRefDate(d)
+    const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+    setFilterDate(localISO(mon))
+  }
 
   const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   const prevDay = () => { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setFilterDate(localISO(d)) }
@@ -142,10 +150,12 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onS
     return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]} ${d.getFullYear()}`
   }
 
-  // Gastos del mes visible
+  // Gastos del mes visible — usa g.fecha (no g.createdAt)
   const gastosMes = useMemo(() =>
     (gastos || []).filter(g => {
-      const d = new Date(g.createdAt)
+      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
+      if (!f) return false
+      const d = new Date(f)
       return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
     }),
   [gastos, refDate])
@@ -181,7 +191,9 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onS
   const guardar = () => {
     const filled = rows.filter(r => r.concepto || r.monto)
     const otrosMeses = (gastos || []).filter(g => {
-      const d = new Date(g.createdAt)
+      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
+      if (!f) return true
+      const d = new Date(f)
       return !(d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear())
     })
     onSave([...otrosMeses, ...filled])
@@ -197,17 +209,25 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onS
   })
   const srSalidasDia = srSalidasMes.filter(r => r.fecha === filterDate)
 
-  // Acumulados
+  // Acumulados — solo la semana seleccionada
+  const acumWStart = (() => {
+    const tmp = new Date(refDate); const dow = tmp.getDay()
+    const d = new Date(tmp); d.setDate(tmp.getDate() - ((dow + 6) % 7)); d.setHours(0, 0, 0, 0); return d
+  })()
+  const acumWEnd = new Date(acumWStart); acumWEnd.setDate(acumWStart.getDate() + 6); acumWEnd.setHours(23, 59, 59, 999)
+  const inSelWeek = (f) => { if (!f) return false; const d = new Date(f.length === 10 ? f + 'T12:00:00' : f); return d >= acumWStart && d <= acumWEnd }
+
   const acumPago = { Tarjeta: 0, Transferencia: 0, Efectivo: 0 }
   const acumCat  = { Pasteleria: 0, Personal: 0 }
 
   rows.forEach(r => {
+    if (!inSelWeek(r.fecha)) return
     const m = parseFloat(r.monto) || 0
     if (r.formaPago && acumPago[r.formaPago] !== undefined) acumPago[r.formaPago] += m
     if (r.categoria && acumCat[r.categoria]  !== undefined) acumCat[r.categoria]  += m
   })
-  // SR salidas al acumulado
   srSalidasMes.forEach(r => {
+    if (!inSelWeek(r.fecha)) return
     const m = parseFloat(r.precio) || 0
     if (r.metodo === 'Banco') acumPago.Tarjeta += m
     else if (r.metodo === 'Efectivo') acumPago.Efectivo += m
