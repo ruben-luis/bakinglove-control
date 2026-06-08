@@ -209,52 +209,93 @@ function SectionLabel({ children, color = 'rgba(255,255,255,.35)' }) {
   )
 }
 
-function getMondayISODash() {
-  const now = new Date()
-  const day = now.getDay()
-  const mon = new Date(now)
-  mon.setDate(now.getDate() - ((day + 6) % 7))
-  const d = mon
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
-
 function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = false, onUnlockClick }) {
   const [rainKey, setRainKey] = useState(0)
 
-  const weekKey = getMondayISODash()
-  const saldoSemana = saldosSemana.find(s => s.id === weekKey) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
-
-  const stats = useMemo(() => {
+  const {
+    saldoInicioEfBkl, saldoInicioEfSr, saldoInicioBancos,
+    bklCashIng, bklBankIng, bklCashGast, bklBankGast,
+    srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
+    bklGanaste, bklGastaste, srVentas, srSalidas,
+  } = useMemo(() => {
     const { mon, sun } = thisWeekRange()
-    const inWeek = fecha => {
-      const d = new Date(fecha.length === 10 ? fecha + 'T12:00:00' : fecha)
+
+    // Semilla = entrada más antigua en saldos_semana (valor manual inicial)
+    const seed = saldosSemana.reduce((earliest, s) => (
+      !earliest || s.id < earliest.id ? s : earliest
+    ), null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
+
+    const beforeThisWeek = f => {
+      if (!f) return false
+      const d = new Date(f.length === 10 ? f + 'T12:00:00' : f)
+      return d < mon
+    }
+    const inThisWeek = f => {
+      if (!f) return false
+      const d = new Date(f.length === 10 ? f + 'T12:00:00' : f)
       return d >= mon && d <= sun
     }
 
-    // BKL — separado por método, usando fecha del pago (no de la nota)
-    let bklCashIng = 0, bklBankIng = 0
+    // ── Acumulado ANTES de esta semana (recalculado en tiempo real) ──
+    let prevBklEf = 0, prevBklBanco = 0, prevBklEfGast = 0, prevBklBancoGast = 0
+    let prevSrEfV = 0, prevSrBancoV = 0, prevSrEfS = 0, prevSrBancoS = 0
+
     notas.forEach(n =>
       (n.pagos || []).forEach(p => {
-        const pagoFecha = p.fecha || n.createdAt
-        if (!inWeek(pagoFecha)) return
+        const pf = p.fecha || n.createdAt
+        if (!beforeThisWeek(pf)) return
         const m = parseFloat(p.monto) || 0
-        if (p.metodoPago === 'Efectivo')                                        bklCashIng += m
-        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')    bklBankIng += m
+        if (p.metodoPago === 'Efectivo')                                      prevBklEf    += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  prevBklBanco += m
       })
     )
 
-    let bklCashGast = 0, bklBankGast = 0
-    gastos
-      .filter(g => inWeek(g.fecha && g.fecha.length === 10 ? g.fecha + 'T12:00:00' : g.createdAt))
-      .forEach(g => {
-        const m = parseFloat(g.monto) || 0
-        if (g.formaPago === 'Efectivo')                                          bklCashGast += m
-        if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia')        bklBankGast += m
-      })
+    gastos.forEach(g => {
+      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
+      if (!beforeThisWeek(f)) return
+      const m = parseFloat(g.monto) || 0
+      if (g.formaPago === 'Efectivo')                                      prevBklEfGast    += m
+      if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia')    prevBklBancoGast += m
+    })
 
-    // SR — separado por método
+    srRows.forEach(r => {
+      if (!r.fecha || !beforeThisWeek(r.fecha)) return
+      const m = parseFloat(r.precio) || 0
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') prevSrEfV    += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco')    prevSrBancoV += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo') prevSrEfS    += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco')    prevSrBancoS += m
+    })
+
+    const saldoInicioEfBkl  = (seed.efectivoBkl || 0) + prevBklEf    - prevBklEfGast
+    const saldoInicioEfSr   = (seed.efectivoSr  || 0) + prevSrEfV    - prevSrEfS
+    const saldoInicioBancos = (seed.bancos      || 0) + prevBklBanco + prevSrBancoV - prevBklBancoGast - prevSrBancoS
+
+    // ── Movimientos de ESTA semana ─────────────────────────────────
+    let bklCashIng = 0, bklBankIng = 0, bklCashGast = 0, bklBankGast = 0
+
+    notas.forEach(n =>
+      (n.pagos || []).forEach(p => {
+        const pf = p.fecha || n.createdAt
+        if (!inThisWeek(pf)) return
+        const m = parseFloat(p.monto) || 0
+        if (p.metodoPago === 'Efectivo')                                      bklCashIng += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  bklBankIng += m
+      })
+    )
+
+    gastos.forEach(g => {
+      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
+      if (!inThisWeek(f)) return
+      const m = parseFloat(g.monto) || 0
+      if (g.formaPago === 'Efectivo')                                      bklCashGast += m
+      if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia')    bklBankGast += m
+    })
+
     let srCashVentas = 0, srBankVentas = 0, srCashSalidas = 0, srBankSalidas = 0
-    srRows.filter(r => r.fecha && inWeek(r.fecha)).forEach(r => {
+
+    srRows.forEach(r => {
+      if (!r.fecha || !inThisWeek(r.fecha)) return
       const m = parseFloat(r.precio) || 0
       if (r.tipo === 'venta'  && r.metodo === 'Efectivo') srCashVentas  += m
       if (r.tipo === 'venta'  && r.metodo === 'Banco')    srBankVentas  += m
@@ -263,32 +304,23 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
     })
 
     return {
+      saldoInicioEfBkl, saldoInicioEfSr, saldoInicioBancos,
+      bklCashIng, bklBankIng, bklCashGast, bklBankGast,
+      srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
       bklGanaste:  bklCashIng + bklBankIng,
       bklGastaste: bklCashGast + bklBankGast,
-      bklCashIng, bklBankIng, bklCashGast, bklBankGast,
-      srVentas:   srCashVentas + srBankVentas,
-      srSalidas:  srCashSalidas + srBankSalidas,
-      srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
+      srVentas:    srCashVentas + srBankVentas,
+      srSalidas:   srCashSalidas + srBankSalidas,
     }
-  }, [notas, gastos, srRows])
+  }, [notas, gastos, srRows, saldosSemana])
 
-  const {
-    bklGanaste, bklGastaste,
-    bklCashIng, bklBankIng, bklCashGast, bklBankGast,
-    srVentas, srSalidas,
-    srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
-  } = stats
-
-  // Efectivo = saldo inicial efectivo + movimientos efectivo de la semana
-  const bklEfectivo   = (saldoSemana.efectivoBkl || 0) + bklCashIng - bklCashGast
-  const srEfectivo    = (saldoSemana.efectivoSr  || 0) + srCashVentas - srCashSalidas
-  // Bancos por sección = movimiento neto bancario de esta semana (sin saldo inicial, que es combinado)
-  const bklBancos     = bklBankIng - bklBankGast
-  const srBancos      = srBankVentas - srBankSalidas
-  // Total bancos = saldo inicial bancos + todos los movimientos bancarios de la semana
-  const totalBancos   = (saldoSemana.bancos || 0) + bklBankIng + srBankVentas - bklBankGast - srBankSalidas
-  const totalTienes   = bklEfectivo + srEfectivo + totalBancos
-  const positivo      = totalTienes >= 0
+  const bklEfectivo = saldoInicioEfBkl + bklCashIng   - bklCashGast
+  const srEfectivo  = saldoInicioEfSr  + srCashVentas - srCashSalidas
+  const bklBancos   = bklBankIng - bklBankGast
+  const srBancos    = srBankVentas - srBankSalidas
+  const totalBancos = saldoInicioBancos + bklBankIng + srBankVentas - bklBankGast - srBankSalidas
+  const totalTienes = bklEfectivo + srEfectivo + totalBancos
+  const positivo    = totalTienes >= 0
 
   useEffect(() => { setRainKey(k => k + 1) }, [bklGanaste, bklGastaste, srVentas, srSalidas])
 
