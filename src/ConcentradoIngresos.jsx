@@ -192,7 +192,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
           <span className="font-display font-bold text-ink text-sm" style={{ whiteSpace: 'nowrap' }}>Concentrado de Ingresos</span>
         </div>
         <button
-          onClick={exportarExcel}
+          onClick={() => exportarExcel(notas, gastos, srRows)}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 14px', borderRadius: 12,

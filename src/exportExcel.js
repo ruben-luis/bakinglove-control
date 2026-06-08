@@ -36,23 +36,20 @@ function applyMoneyFmt(ws, cols, rowStart, rowEnd) {
 }
 
 // ── Exportar ────────────────────────────────────────────────────
+// notas, gastos y srRows se reciben desde el componente (datos de Firestore)
 
-export function exportarExcel() {
-  const notas  = JSON.parse(localStorage.getItem('bkl_notas')  || '[]')
-  const gastos = JSON.parse(localStorage.getItem('bkl_gastos') || '[]')
-
+export function exportarExcel(notas = [], gastos = [], srRows = []) {
   const wb = XLSX.utils.book_new()
 
-  // ── Hoja 1: INGRESOS ──────────────────────────────────────────
+  // ── Hoja 1: INGRESOS (Notas de venta) ─────────────────────────
 
-  // Cuántos pagos tiene como máximo una sola nota (mínimo 1 columna)
   const maxPagos = Math.max(1, ...notas.map(n =>
     (n.pagos || []).filter(p => p.monto).length
   ))
 
   const ingHead = [
     'Folio', 'Fecha Registro', 'Fecha Entrega', 'Cliente', 'Contacto',
-    'Productos', 'Total Pedido', 'Total Pagado', 'Restante',
+    'Productos', 'Total Pedido', 'Total Pagado', 'Restante', 'Estado',
     ...Array.from({ length: maxPagos }, (_, i) =>
       maxPagos === 1
         ? ['Fecha de Pago', 'Forma de Pago', 'Monto']
@@ -68,7 +65,6 @@ export function exportarExcel() {
       .map(p => `${p.cantidad ? p.cantidad + 'x ' : ''}${p.descripcion}`)
       .join(' | ')
 
-    // Cada pago ocupa tres columnas: fecha | método | monto
     const pagosArr = (n.pagos || [])
       .filter(p => p.monto)
       .flatMap(p => {
@@ -76,7 +72,6 @@ export function exportarExcel() {
         return [fecha, p.metodoPago || '', num(p.monto)]
       })
 
-    // Rellenar con vacíos hasta maxPagos * 3 columnas
     while (pagosArr.length < maxPagos * 3) pagosArr.push('')
 
     const totalPedido = num(n.totalPedido)
@@ -93,27 +88,27 @@ export function exportarExcel() {
       totalPedido,
       totalPagado,
       resta,
+      n.estado || '',
       ...pagosArr,
     ]
   })
 
   const wsIng = XLSX.utils.aoa_to_sheet([ingHead, ...ingRows])
   wsIng['!cols'] = [
-    { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 16 },
-    { wch: 42 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
-    ...Array.from({ length: maxPagos }, () => [{ wch: 14 }, { wch: 18 }, { wch: 13 }]).flat(),
+    { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 24 }, { wch: 14 },
+    { wch: 40 }, { wch: 13 }, { wch: 13 }, { wch: 11 }, { wch: 11 },
+    ...Array.from({ length: maxPagos }, () => [{ wch: 13 }, { wch: 16 }, { wch: 12 }]).flat(),
   ]
-  // Columnas de monto por pago: índice base 9, cada pago ocupa 3 cols, monto es la 3ra
   const colLetter = n => { let s='', x=n+1; while(x>0){s=String.fromCharCode(64+(x%26||26))+s;x=Math.floor((x-1)/26)}; return s }
-  const montosCols = Array.from({ length: maxPagos }, (_, i) => colLetter(9 + i * 3 + 2))
+  const montosCols = Array.from({ length: maxPagos }, (_, i) => colLetter(10 + i * 3 + 2))
   if (ingRows.length) {
     applyMoneyFmt(wsIng, ['G', 'H', 'I'], 2, ingRows.length + 1)
     applyMoneyFmt(wsIng, montosCols, 2, ingRows.length + 1)
   }
   XLSX.utils.book_append_sheet(wb, wsIng, 'Ingresos')
 
-  // ── Hoja 2: GASTOS ───────────────────────────────────────────
-  const gastHead = ['Fecha', 'Descripción del gasto', 'Monto', 'Forma de Pago', 'Categoría']
+  // ── Hoja 2: GASTOS (Bakinglove) ───────────────────────────────
+  const gastHead = ['Fecha', 'Descripción del gasto', 'Monto', 'Forma de Pago', 'Categoría', 'Semana']
 
   const gastRows = [...gastos]
     .filter(g => g.concepto || g.monto)
@@ -122,63 +117,110 @@ export function exportarExcel() {
       const db = new Date(b.fecha ? b.fecha + 'T12:00:00' : b.createdAt)
       return da - db
     })
-    .map(g => [
-      g.fecha || '',
-      g.concepto || '',
-      num(g.monto),
-      g.formaPago || '',
-      g.categoria || '',
-    ])
+    .map(g => {
+      const { mon } = getWeekBounds(g.fecha ? g.fecha + 'T12:00:00' : g.createdAt)
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
+      const fmt = d => d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+      return [
+        g.fecha || '',
+        g.concepto || '',
+        num(g.monto),
+        g.formaPago || '',
+        g.categoria || '',
+        `${fmt(mon)} – ${fmt(sun)}`,
+      ]
+    })
 
   const wsGast = XLSX.utils.aoa_to_sheet([gastHead, ...gastRows])
   wsGast['!cols'] = [
-    { wch: 12 }, { wch: 42 }, { wch: 14 }, { wch: 16 }, { wch: 14 },
+    { wch: 12 }, { wch: 42 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 20 },
   ]
   if (gastRows.length) applyMoneyFmt(wsGast, ['C'], 2, gastRows.length + 1)
-  XLSX.utils.book_append_sheet(wb, wsGast, 'Gastos')
+  XLSX.utils.book_append_sheet(wb, wsGast, 'Gastos BKL')
 
-  // ── Hoja 3: BALANCE GENERAL ──────────────────────────────────
+  // ── Hoja 3: SAN RAMÓN (ventas y salidas) ──────────────────────
+  const srHead = ['Fecha', 'Tipo', 'Producto / Descripción', 'Monto', 'Método', 'Semana']
+
+  const srData = [...srRows]
+    .filter(r => r.producto || r.precio)
+    .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
+    .map(r => {
+      const { mon } = getWeekBounds(r.fecha + 'T12:00:00')
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
+      const fmt = d => d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+      return [
+        r.fecha || '',
+        r.tipo === 'venta' ? 'Venta' : r.tipo === 'salida' ? 'Salida' : '',
+        r.producto || '',
+        num(r.precio),
+        r.metodo || '',
+        `${fmt(mon)} – ${fmt(sun)}`,
+      ]
+    })
+
+  const wsSR = XLSX.utils.aoa_to_sheet([srHead, ...srData])
+  wsSR['!cols'] = [
+    { wch: 12 }, { wch: 10 }, { wch: 36 }, { wch: 12 }, { wch: 12 }, { wch: 20 },
+  ]
+  if (srData.length) applyMoneyFmt(wsSR, ['D'], 2, srData.length + 1)
+  XLSX.utils.book_append_sheet(wb, wsSR, 'San Ramón')
+
+  // ── Hoja 4: BALANCE GENERAL por semana ────────────────────────
   const weekMap = new Map()
 
-  notas.forEach(n => {
+  sortedNotas.forEach(n => {
     if (!n.createdAt) return
     const { key } = getWeekBounds(n.createdAt)
-    if (!weekMap.has(key)) weekMap.set(key, { ingresos: 0, gastos: 0 })
-    weekMap.get(key).ingresos += num(n.totalPagado)
+    if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
+    weekMap.get(key).ingBKL += num(n.totalPagado)
   })
 
   gastos.filter(g => g.monto).forEach(g => {
     const src = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
     const { key } = getWeekBounds(src)
-    if (!weekMap.has(key)) weekMap.set(key, { ingresos: 0, gastos: 0 })
-    weekMap.get(key).gastos += num(g.monto)
+    if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
+    weekMap.get(key).gastBKL += num(g.monto)
+  })
+
+  srRows.filter(r => r.precio && r.fecha).forEach(r => {
+    const { key } = getWeekBounds(r.fecha + 'T12:00:00')
+    if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
+    if (r.tipo === 'venta')  weekMap.get(key).ingSR    += num(r.precio)
+    if (r.tipo === 'salida') weekMap.get(key).salidaSR += num(r.precio)
   })
 
   const sortedWeeks = [...weekMap.entries()].sort((a, b) => a[0] - b[0])
-  const totalIng  = sortedWeeks.reduce((s, [, d]) => s + d.ingresos, 0)
-  const totalGast = sortedWeeks.reduce((s, [, d]) => s + d.gastos, 0)
-  const totalBal  = totalIng - totalGast
 
-  const balHead = ['Semana', 'Ingresos', 'Gastos', 'Balance']
-  const balWeekRows = sortedWeeks.map(([ts, d]) => [
+  const balHead = ['Semana', 'Ingresos BKL', 'Gastos BKL', 'Balance BKL', 'Ventas SR', 'Salidas SR', 'Balance SR', 'Balance Total']
+  const balRows = sortedWeeks.map(([ts, d]) => [
     weekLabel(ts),
-    d.ingresos,
-    d.gastos,
-    d.ingresos - d.gastos,
+    d.ingBKL,
+    d.gastBKL,
+    d.ingBKL - d.gastBKL,
+    d.ingSR,
+    d.salidaSR,
+    d.ingSR - d.salidaSR,
+    (d.ingBKL - d.gastBKL) + (d.ingSR - d.salidaSR),
   ])
+
+  const totIng  = sortedWeeks.reduce((s, [, d]) => s + d.ingBKL, 0)
+  const totGast = sortedWeeks.reduce((s, [, d]) => s + d.gastBKL, 0)
+  const totSRV  = sortedWeeks.reduce((s, [, d]) => s + d.ingSR, 0)
+  const totSRS  = sortedWeeks.reduce((s, [, d]) => s + d.salidaSR, 0)
+
   const balData = [
     balHead,
-    ...balWeekRows,
-    ['', '', '', ''],
-    ['TOTAL GENERAL', totalIng, totalGast, totalBal],
+    ...balRows,
+    ['', '', '', '', '', '', '', ''],
+    ['TOTAL GENERAL', totIng, totGast, totIng - totGast, totSRV, totSRS, totSRV - totSRS, (totIng - totGast) + (totSRV - totSRS)],
   ]
 
   const wsBal = XLSX.utils.aoa_to_sheet(balData)
   wsBal['!cols'] = [
-    { wch: 36 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
+    { wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
   ]
   const lastBal = balData.length
-  applyMoneyFmt(wsBal, ['B', 'C', 'D'], 2, lastBal)
+  applyMoneyFmt(wsBal, ['B','C','D','E','F','G','H'], 2, lastBal)
   XLSX.utils.book_append_sheet(wb, wsBal, 'Balance General')
 
   // ── Descargar ────────────────────────────────────────────────

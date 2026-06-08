@@ -197,7 +197,7 @@ export default function App() {
   } else if (view === 'concentrado') {
     content = <ConcentradoIngresos notas={notas} gastos={gastos} srRows={srRows} saldosSemana={saldosSemana} onBack={() => setView('dashboard')} />
   } else if (view === 'gastos') {
-    content = <ConcentradoGastos gastos={gastos} srRows={srRows} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
+    content = <ConcentradoGastos notas={notas} gastos={gastos} srRows={srRows} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} />
   } else if (view === 'sanramon') {
