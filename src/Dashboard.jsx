@@ -173,12 +173,12 @@ function StatBox({ label, amount, color, isNeg = false }) {
   const fmted = animated.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
-    <div style={{ textAlign: 'center', padding: '14px 6px 12px', position: 'relative', zIndex: 1 }}>
-      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.45)', marginBottom: 6 }}>
+    <div style={{ textAlign: 'center', padding: '10px 3px 9px', position: 'relative', zIndex: 1 }}>
+      <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.45)', marginBottom: 5 }}>
         {label.toUpperCase()}
       </div>
       <div style={{
-        fontSize: 'clamp(13px, 4.5vw, 20px)',
+        fontSize: 'clamp(11px, 3.2vw, 17px)',
         fontWeight: 900,
         color,
         fontVariantNumeric: 'tabular-nums',
@@ -222,40 +222,71 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
   const [rainKey, setRainKey] = useState(0)
 
   const weekKey = getMondayISODash()
-  const saldoSemana = saldosSemana.find(s => s.id === weekKey) || { efectivoBkl: 0, efectivoSr: 0 }
+  const saldoSemana = saldosSemana.find(s => s.id === weekKey) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
 
   const stats = useMemo(() => {
     const { mon, sun } = thisWeekRange()
-
     const inWeek = fecha => {
       const d = new Date(fecha.length === 10 ? fecha + 'T12:00:00' : fecha)
       return d >= mon && d <= sun
     }
 
-    const bklGanaste = notas
-      .filter(n => inWeek(n.createdAt))
-      .reduce((s, n) => s + (Number(n.totalPagado) || 0), 0)
+    // BKL — separado por método
+    let bklCashIng = 0, bklBankIng = 0
+    notas.filter(n => inWeek(n.createdAt)).forEach(n =>
+      (n.pagos || []).forEach(p => {
+        const m = parseFloat(p.monto) || 0
+        if (p.metodoPago === 'Efectivo')                                        bklCashIng += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')    bklBankIng += m
+      })
+    )
 
-    const bklGastaste = gastos
+    let bklCashGast = 0, bklBankGast = 0
+    gastos
       .filter(g => inWeek(g.fecha && g.fecha.length === 10 ? g.fecha + 'T12:00:00' : g.createdAt))
-      .reduce((s, g) => s + (Number(g.monto) || 0), 0)
+      .forEach(g => {
+        const m = parseFloat(g.monto) || 0
+        if (g.formaPago === 'Efectivo')                                          bklCashGast += m
+        if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia')        bklBankGast += m
+      })
 
-    const srVentas = srRows
-      .filter(r => r.tipo === 'venta' && r.fecha && inWeek(r.fecha))
-      .reduce((s, r) => s + (Number(r.precio) || 0), 0)
+    // SR — separado por método
+    let srCashVentas = 0, srBankVentas = 0, srCashSalidas = 0, srBankSalidas = 0
+    srRows.filter(r => r.fecha && inWeek(r.fecha)).forEach(r => {
+      const m = parseFloat(r.precio) || 0
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') srCashVentas  += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco')    srBankVentas  += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo') srCashSalidas += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco')    srBankSalidas += m
+    })
 
-    const srSalidas = srRows
-      .filter(r => r.tipo === 'salida' && r.fecha && inWeek(r.fecha))
-      .reduce((s, r) => s + (Number(r.precio) || 0), 0)
-
-    return { bklGanaste, bklGastaste, srVentas, srSalidas }
+    return {
+      bklGanaste:  bklCashIng + bklBankIng,
+      bklGastaste: bklCashGast + bklBankGast,
+      bklCashIng, bklBankIng, bklCashGast, bklBankGast,
+      srVentas:   srCashVentas + srBankVentas,
+      srSalidas:  srCashSalidas + srBankSalidas,
+      srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
+    }
   }, [notas, gastos, srRows])
 
-  const { bklGanaste, bklGastaste, srVentas, srSalidas } = stats
-  const bklTienes   = bklGanaste - bklGastaste + (saldoSemana.efectivoBkl || 0)
-  const srNeto      = srVentas - srSalidas + (saldoSemana.efectivoSr || 0)
-  const totalTienes = bklTienes + srNeto + (saldoSemana.bancos || 0)
-  const positivo    = totalTienes >= 0
+  const {
+    bklGanaste, bklGastaste,
+    bklCashIng, bklBankIng, bklCashGast, bklBankGast,
+    srVentas, srSalidas,
+    srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
+  } = stats
+
+  // Efectivo = saldo inicial efectivo + movimientos efectivo de la semana
+  const bklEfectivo   = (saldoSemana.efectivoBkl || 0) + bklCashIng - bklCashGast
+  const srEfectivo    = (saldoSemana.efectivoSr  || 0) + srCashVentas - srCashSalidas
+  // Bancos por sección = movimiento neto bancario de esta semana (sin saldo inicial, que es combinado)
+  const bklBancos     = bklBankIng - bklBankGast
+  const srBancos      = srBankVentas - srBankSalidas
+  // Total bancos = saldo inicial bancos + todos los movimientos bancarios de la semana
+  const totalBancos   = (saldoSemana.bancos || 0) + bklBankIng + srBankVentas - bklBankGast - srBankSalidas
+  const totalTienes   = bklEfectivo + srEfectivo + totalBancos
+  const positivo      = totalTienes >= 0
 
   useEffect(() => { setRainKey(k => k + 1) }, [bklGanaste, bklGastaste, srVentas, srSalidas])
 
@@ -281,35 +312,52 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
 
           {/* ── Bakinglove ─────────────────────────────────── */}
           <SectionLabel>● Bakinglove</SectionLabel>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr' }}>
             <StatBox label="Ganaste"  amount={bklGanaste}  color="#6ee7b7" />
             {sep}
             <StatBox label="Gastaste" amount={bklGastaste} color="#fca5a5" />
             {sep}
-            <StatBox label="Tienes"   amount={bklTienes}   color={bklTienes >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+            <StatBox label="Efectivo" amount={bklEfectivo} color={bklEfectivo >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+            {sep}
+            <StatBox label="Bancos"   amount={bklBancos}   color={bklBancos >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
           </div>
 
           {/* ── San Ramón ───────────────────────────────────── */}
           <div style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
             <SectionLabel color="rgba(249,168,212,.6)">● San Ramón</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr' }}>
-              <StatBox label="Ventas"   amount={srVentas}  color="#6ee7b7" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr' }}>
+              <StatBox label="Ventas"   amount={srVentas}   color="#6ee7b7" />
               {sep}
-              <StatBox label="Salidas"  amount={srSalidas} color="#fca5a5" />
+              <StatBox label="Salidas"  amount={srSalidas}  color="#fca5a5" />
               {sep}
-              <StatBox label="Debo tener" amount={srNeto}  color={srNeto >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+              <StatBox label="Efectivo" amount={srEfectivo} color={srEfectivo >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+              {sep}
+              <StatBox label="Bancos"   amount={srBancos}   color={srBancos >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
             </div>
           </div>
 
           {/* ── Total general ───────────────────────────────── */}
           <div style={{ borderTop: '2px solid rgba(255,255,255,.18)' }}>
             <SectionLabel color="rgba(255,255,255,.5)">◆ Total general</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr' }}>
-              <StatBox label="Total ganado"  amount={bklGanaste + srVentas}  color="#6ee7b7" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr' }}>
+              <StatBox label="T. Ganado"  amount={bklGanaste + srVentas}   color="#6ee7b7" />
               {sep}
-              <StatBox label="Total gastado" amount={bklGastaste + srSalidas} color="#fca5a5" />
+              <StatBox label="T. Gastado" amount={bklGastaste + srSalidas}  color="#fca5a5" />
               {sep}
-              <StatBox label="Total tienes"  amount={totalTienes} color={positivo ? '#fde68a' : '#fca5a5'} isNeg />
+              <StatBox label="Efectivo"   amount={bklEfectivo + srEfectivo} color={(bklEfectivo + srEfectivo) >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+              {sep}
+              <StatBox label="Bancos"     amount={totalBancos}              color={totalBancos >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+            </div>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,.12)', padding: '10px 0 4px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(255,255,255,.4)', marginRight: 8 }}>TOTAL TIENES</span>
+              <span style={{
+                fontSize: 'clamp(15px, 5vw, 24px)',
+                fontWeight: 900,
+                color: positivo ? '#fde68a' : '#fca5a5',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {totalTienes < 0 ? '-' : ''}${Math.abs(totalTienes).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
         </div>
