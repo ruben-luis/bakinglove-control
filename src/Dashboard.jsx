@@ -246,8 +246,13 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
         const pf = p.fecha || n.createdAt
         if (!beforeThisWeek(pf)) return
         const m = parseFloat(p.monto) || 0
-        if (p.metodoPago === 'Efectivo')                                      prevBklEf    += m
-        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  prevBklBanco += m
+        if (p.sucursal === 'SR') {
+          if (p.metodoPago === 'Efectivo') prevSrEfV += m
+          else                             prevSrBancoV += m
+        } else {
+          if (p.metodoPago === 'Efectivo')                                      prevBklEf    += m
+          if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  prevBklBanco += m
+        }
       })
     )
 
@@ -280,8 +285,13 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
         const pf = p.fecha || n.createdAt
         if (!inThisWeek(pf)) return
         const m = parseFloat(p.monto) || 0
-        if (p.metodoPago === 'Efectivo')                                      bklCashIng += m
-        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  bklBankIng += m
+        if (p.sucursal === 'SR') {
+          if (p.metodoPago === 'Efectivo') srCashVentas += m
+          else                             srBankVentas += m
+        } else {
+          if (p.metodoPago === 'Efectivo')                                      bklCashIng += m
+          if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  bklBankIng += m
+        }
       })
     )
 

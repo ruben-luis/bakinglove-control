@@ -22,6 +22,7 @@ export default function App() {
   const [saldosSemana, setSaldosSemana] = useState([])
   const [pinAction,    setPinAction]    = useState(null)
   const [loading,      setLoading]      = useState(true)
+  const [editingNota,  setEditingNota]  = useState(null)
 
   // ── Suscripción en tiempo real a Firestore ────────────────────
   useEffect(() => {
@@ -130,6 +131,12 @@ export default function App() {
   let content
   if (view === 'nota') {
     content = <NotaDeVenta onBack={() => setView('dashboard')} onSave={handleSaveNota} />
+  } else if (view === 'editNota') {
+    content = <NotaDeVenta
+      notaInicial={editingNota}
+      onBack={() => { setView('calendario'); setEditingNota(null) }}
+      onUpdate={nota => { handleEditNota(nota); setView('calendario'); setEditingNota(null) }}
+    />
   } else if (view === 'historial') {
     content = <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
   } else if (view === 'concentrado') {
@@ -137,7 +144,7 @@ export default function App() {
   } else if (view === 'gastos') {
     content = <ConcentradoGastos notas={notas} gastos={gastos} srRows={srRows} saldosSemana={saldosSemana} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
-    content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} />
+    content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} />
   } else if (view === 'sanramon') {
     content = <SanRamonView onBack={() => setView('dashboard')} onSrChange={setSrRows} />
   } else {

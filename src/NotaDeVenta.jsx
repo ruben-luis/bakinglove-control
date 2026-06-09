@@ -28,7 +28,7 @@ const fmtMoney  = (n) => n > 0 ? `$${Number(n).toLocaleString('es-MX', { minimum
 const fmtDate   = (iso) => iso ? iso.split('-').reverse().join('/') : ''
 
 const emptyP = () => ({ cantidad: '', descripcion: '', precioU: '' })
-const emptyG = () => ({ monto: '', fecha: todayISO(), met: null })
+const emptyG = () => ({ monto: '', fecha: todayISO(), met: null, sucursal: 'BKL' })
 
 const METODOS = ['Transferencia', 'Efectivo', 'Terminal']
 
@@ -96,19 +96,51 @@ function MethodPicker({ value, onChange }) {
   )
 }
 
+function SucursalPicker({ value, onChange }) {
+  const opts = [
+    { id: 'BKL', bg: PINK_HI, color: PINK_TEXT },
+    { id: 'SR',  bg: MINT_BG, color: MINT_TEXT  },
+  ]
+  return (
+    <div style={{ display: 'flex', height: '100%' }}>
+      {opts.map(({ id, bg, color }, i) => {
+        const on = value === id
+        return (
+          <button key={id} onClick={() => onChange(id)}
+            style={{ flex:1, textAlign:'center', fontSize:11.5, fontWeight: on ? 800 : 600, color: on ? color : '#bbb', background: on ? bg : 'transparent', cursor:'pointer', border:'none', borderRight: i === 0 ? `1px solid ${GRAY_LINE}` : 'none' }}>
+            {id}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════
-export default function NotaDeVenta({ onBack, onSave }) {
-  const [fecha, setF]   = useState(todayISO)
-  const [hora,  setH]   = useState('')
-  const [cli,   setC]   = useState('')
-  const [lugar, setL]   = useState('')
-  const [costo, setK]   = useState('')
-  const [tel,   setT]   = useState('')
-  // Solo BH y SR son exclusivos; CONSUMO siempre igual
-  const [ubicSel, setUbicSel] = useState(null)  // null | 'BELLO HORIZONTE' | 'SAN RAMON'
-  const [prods, setProds] = useState([emptyP(), emptyP()])
-  const [obs,   setObs]   = useState(['', ''])
-  const [pagos, setPagos] = useState([emptyG(), emptyG(), emptyG()])
+export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = null }) {
+  const isEdit = !!notaInicial
+
+  const [fecha, setF]   = useState(() => notaInicial?.fechaEntrega || todayISO())
+  const [hora,  setH]   = useState(() => notaInicial?.horaEntrega  || '')
+  const [cli,   setC]   = useState(() => notaInicial?.cliente      || '')
+  const [lugar, setL]   = useState(() => notaInicial?.lugarEntrega || '')
+  const [costo, setK]   = useState(() => notaInicial?.costoEntrega ? String(notaInicial.costoEntrega) : '')
+  const [tel,   setT]   = useState(() => notaInicial?.contacto     || '')
+  const [ubicSel, setUbicSel] = useState(() => notaInicial?.ubicacion || null)
+  const [prods, setProds] = useState(() => {
+    if (!notaInicial?.productos) return [emptyP(), emptyP()]
+    const existing = notaInicial.productos.map(p => ({ cantidad: p.cantidad || '', descripcion: p.descripcion || '', precioU: p.precioU || '' }))
+    return [...existing, emptyP(), emptyP()]
+  })
+  const [obs, setObs] = useState(() => {
+    if (!notaInicial?.observaciones) return ['', '']
+    return [...notaInicial.observaciones, '', '']
+  })
+  const [pagos, setPagos] = useState(() => {
+    if (!notaInicial?.pagos) return [emptyG(), emptyG(), emptyG()]
+    const existing = notaInicial.pagos.map(p => ({ monto: p.monto || '', fecha: p.fecha || todayISO(), met: p.metodoPago || null, sucursal: p.sucursal || 'BKL' }))
+    return [...existing, emptyG(), emptyG(), emptyG()]
+  })
   const [saving, setSaving] = useState(false)
 
   const costoEntrega = parseFloat(costo) || 0
@@ -123,25 +155,43 @@ export default function NotaDeVenta({ onBack, onSave }) {
   const updG = (i, f, v) => setPagos(a => { const n = [...a]; n[i] = { ...n[i], [f]: v }; return n })
   const updO = (i, v)    => setObs(a  => { const n = [...a]; n[i] = v; return n })
 
+  const buildPagos = () => pagos.map(p => ({ monto: p.monto, fecha: p.fecha, metodoPago: p.met, sucursal: p.sucursal || 'BKL' }))
+
   const save = async () => {
     if (saving) return
     setSaving(true)
     try {
-      await onSave({
-        id: crypto.randomUUID(),
-        fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
-        lugarEntrega: lugar, costoEntrega, contacto: tel,
-        ubicacion: ubicSel,
-        productos: prods.map(p => ({ ...p, total: (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0) })),
-        observaciones: obs,
-        pagos: pagos.map(p => ({ monto: p.monto, fecha: p.fecha, metodoPago: p.met })),
-        totalProductos: totalProds, totalPedido: totalGeneral,
-        totalPagado: totalG, resta,
-        estado: resta <= 0 ? 'pagado' : 'pendiente',
-        mes: new Date().getMonth(), año: new Date().getFullYear(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
+      if (isEdit) {
+        await onUpdate({
+          ...notaInicial,
+          fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
+          lugarEntrega: lugar, costoEntrega, contacto: tel,
+          ubicacion: ubicSel,
+          productos: prods.map(p => ({ ...p, total: (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0) })),
+          observaciones: obs,
+          pagos: buildPagos(),
+          totalProductos: totalProds, totalPedido: totalGeneral,
+          totalPagado: totalG, resta,
+          estado: resta <= 0 ? 'pagado' : 'pendiente',
+          updatedAt: new Date().toISOString(),
+        })
+      } else {
+        await onSave({
+          id: crypto.randomUUID(),
+          fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
+          lugarEntrega: lugar, costoEntrega, contacto: tel,
+          ubicacion: ubicSel,
+          productos: prods.map(p => ({ ...p, total: (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0) })),
+          observaciones: obs,
+          pagos: buildPagos(),
+          totalProductos: totalProds, totalPedido: totalGeneral,
+          totalPagado: totalG, resta,
+          estado: resta <= 0 ? 'pagado' : 'pendiente',
+          mes: new Date().getMonth(), año: new Date().getFullYear(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      }
     } finally {
       setSaving(false)
     }
@@ -182,7 +232,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
           </button>
           <button onClick={save} disabled={saving}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: saving ? '#888' : '#2b2731', color: '#FBFAFB', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer' }}>
-            <Save size={14} /> {saving ? 'Guardando…' : 'Guardar'}
+            <Save size={14} /> {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -374,7 +424,7 @@ export default function NotaDeVenta({ onBack, onSave }) {
             <div className="nota-scroll">
             <table style={DT}>
               <thead>
-                <NavyTH cols={[{ label: 'N°', width: 36 }, { label: 'MONTO' }, { label: 'FECHA' }, { label: 'METODO DE PAGO' }]} />
+                <NavyTH cols={[{ label: 'N°', width: 36 }, { label: 'MONTO' }, { label: 'FECHA' }, { label: 'METODO DE PAGO' }, { label: 'SUCURSAL', width: 80 }]} />
               </thead>
               <tbody>
                 {pagos.map((p, i) => (
@@ -392,6 +442,9 @@ export default function NotaDeVenta({ onBack, onSave }) {
                     </td>
                     <td style={{ border: `1px solid ${GRAY_LINE}`, padding: 0, height: 42 }}>
                       <MethodPicker value={p.met} onChange={v => updG(i, 'met', v)} />
+                    </td>
+                    <td style={{ border: `1px solid ${GRAY_LINE}`, padding: 0, height: 42, width: 80 }}>
+                      <SucursalPicker value={p.sucursal || 'BKL'} onChange={v => updG(i, 'sucursal', v)} />
                     </td>
                   </tr>
                 ))}

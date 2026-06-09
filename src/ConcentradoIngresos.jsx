@@ -121,8 +121,13 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       const pf = p.fecha || n.createdAt
       if (!beforeWk(pf)) return
       const m = parseFloat(p.monto) || 0
-      if (p.metodoPago === 'Efectivo') prevBklEf += m
-      if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia') prevBklBanco += m
+      if (p.sucursal === 'SR') {
+        if (p.metodoPago === 'Efectivo') prevSrEfV += m
+        else prevSrBancoV += m
+      } else {
+        if (p.metodoPago === 'Efectivo') prevBklEf += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia') prevBklBanco += m
+      }
     }))
     gastos.forEach(g => {
       const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
@@ -150,9 +155,14 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       const pf = p.fecha || n.createdAt
       if (!inWk(pf)) return
       const m = parseFloat(p.monto) || 0
-      if (p.metodoPago === 'Terminal')      acum.Terminal      += m
-      if (p.metodoPago === 'Transferencia') acum.Transferencia += m
-      if (p.metodoPago === 'Efectivo')      acum.Efectivo      += m
+      if (p.sucursal === 'SR') {
+        if (p.metodoPago === 'Efectivo') acum.Efectivo  += m
+        else                             acum.Terminal   += m
+      } else {
+        if (p.metodoPago === 'Terminal')      acum.Terminal      += m
+        if (p.metodoPago === 'Transferencia') acum.Transferencia += m
+        if (p.metodoPago === 'Efectivo')      acum.Efectivo      += m
+      }
     }))
     srRows.forEach(r => {
       if (r.tipo !== 'venta' || !r.fecha || !inWk(r.fecha)) return

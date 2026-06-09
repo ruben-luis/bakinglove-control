@@ -175,7 +175,8 @@ export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana
       if (!pagoDate) return
       const { key } = getWeekBounds(pagoDate.length === 10 ? pagoDate + 'T12:00:00' : pagoDate)
       if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
-      weekMap.get(key).ingBKL += num(p.monto)
+      if (p.sucursal === 'SR') weekMap.get(key).ingSR   += num(p.monto)
+      else                     weekMap.get(key).ingBKL  += num(p.monto)
     })
   })
 

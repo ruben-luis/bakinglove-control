@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, X, Clock, CreditCard, Banknote, Smartphone } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Clock, CreditCard, Banknote, Smartphone, Pencil } from 'lucide-react'
 
 const NAVY      = '#1f2b5e'
 const PINK_HI   = '#fbe0ea'
@@ -46,7 +46,7 @@ function MethodBadge({ method }) {
   )
 }
 
-function NotaCard({ nota }) {
+function NotaCard({ nota, onEdit }) {
   const total   = Number(nota.totalPedido || 0)
   const pagado  = nota.totalPagado !== undefined
     ? Number(nota.totalPagado)
@@ -164,15 +164,25 @@ function NotaCard({ nota }) {
 
       {/* ── Barra de progreso ── */}
       {total > 0 && (
-        <div style={{ height:5, background:'#e4e4e8', borderRadius:999, overflow:'hidden' }}>
+        <div style={{ height:5, background:'#e4e4e8', borderRadius:999, overflow:'hidden', marginBottom:10 }}>
           <div style={{ height:'100%', width:`${pagadoPct}%`, background: liquidado ? MINT_TEXT : PINK_TEXT, borderRadius:999, transition:'width .4s' }} />
         </div>
+      )}
+
+      {/* ── Botón editar ── */}
+      {onEdit && (
+        <button
+          onClick={() => onEdit(nota)}
+          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, border:`1.5px solid ${NAVY}`, background:'#fff', color:NAVY, fontSize:12, fontWeight:700, cursor:'pointer' }}
+        >
+          <Pencil size={13} strokeWidth={2.5} /> Editar nota
+        </button>
       )}
     </div>
   )
 }
 
-export default function CalendarioEntregas({ notas = [], onBack }) {
+export default function CalendarioEntregas({ notas = [], onBack, onEditNota }) {
   const today  = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -413,7 +423,7 @@ export default function CalendarioEntregas({ notas = [], onBack }) {
                   Sin entregas para este día
                 </div>
               ) : (
-                selNotas.map((n, i) => <NotaCard key={n.id || i} nota={n} />)
+                selNotas.map((n, i) => <NotaCard key={n.id || i} nota={n} onEdit={onEditNota} />)
               )}
             </motion.div>
           </>
