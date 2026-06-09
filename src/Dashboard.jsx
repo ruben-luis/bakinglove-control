@@ -279,6 +279,7 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
 
     // ── Movimientos de ESTA semana ─────────────────────────────────
     let bklCashIng = 0, bklBankIng = 0, bklCashGast = 0, bklBankGast = 0
+    let srCashVentas = 0, srBankVentas = 0, srCashSalidas = 0, srBankSalidas = 0
 
     notas.forEach(n =>
       (n.pagos || []).forEach(p => {
@@ -302,8 +303,6 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       if (g.formaPago === 'Efectivo')                                      bklCashGast += m
       if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia')    bklBankGast += m
     })
-
-    let srCashVentas = 0, srBankVentas = 0, srCashSalidas = 0, srBankSalidas = 0
 
     srRows.forEach(r => {
       if (!r.fecha || !inThisWeek(r.fecha)) return
