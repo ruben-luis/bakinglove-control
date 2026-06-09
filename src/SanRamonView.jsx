@@ -128,6 +128,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
   function nextDay() { const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 1); switchDate(localISO(d)) }
 
   function updRow(i, field, val) {
+    if (dayRows[i]?.fromNota) return
     const next = dayRows.map((r, idx) => idx === i ? { ...r, [field]: val, updatedAt: new Date().toISOString() } : r)
     setDayRows(next)
     setDirty(true)
@@ -143,6 +144,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
   }
 
   function deleteRow(i) {
+    if (dayRows[i]?.fromNota) return
     const next = dayRows.length <= 2
       ? dayRows.map((r, idx) => idx === i ? emptyRow(filterDate) : r)
       : dayRows.filter((_, idx) => idx !== i)
@@ -270,8 +272,9 @@ export default function SanRamonView({ onBack, onSrChange }) {
               </thead>
               <tbody>
                 {dayRows.map((row, i) => {
-                  const isV = row.tipo === 'venta'
-                  const isS = row.tipo === 'salida'
+                  const isV    = row.tipo === 'venta'
+                  const isS    = row.tipo === 'salida'
+                  const isNota = !!row.fromNota
                   return (
                     <tr key={row.id}
                       style={{ background: isV ? 'rgba(217,239,210,.15)' : isS ? 'rgba(251,224,234,.15)' : '#fff' }}
@@ -283,89 +286,78 @@ export default function SanRamonView({ onBack, onSrChange }) {
                         {String(i + 1).padStart(2, '0')}
                       </td>
 
-                      {/* TIPO */}
-                      <td style={{ ...tdBase, padding: 0, width: 54 }}>
-                        <div style={{ display: 'flex', height: '100%' }}>
-                          <div
-                            onClick={() => toggleTipo(i, 'venta')}
-                            style={{
-                              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 10, fontWeight: 800,
-                              color: isV ? VENTA_TX : '#ccc',
-                              background: isV ? VENTA_BG : 'transparent',
-                              cursor: 'pointer', borderRight: `1px solid ${LINE_SOFT}`,
-                              transition: 'background 0.1s',
-                            }}
-                          >V</div>
-                          <div
-                            onClick={() => toggleTipo(i, 'salida')}
-                            style={{
-                              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 10, fontWeight: 800,
-                              color: isS ? SALIDA_TX : '#ccc',
-                              background: isS ? SALIDA_BG : 'transparent',
-                              cursor: 'pointer',
-                              transition: 'background 0.1s',
-                            }}
-                          >S</div>
-                        </div>
-                      </td>
-
-                      {/* Producto */}
-                      <td style={tdBase}>
-                        <input
-                          value={row.producto}
-                          onChange={e => updRow(i, 'producto', e.target.value)}
-                          placeholder="Producto o descripción…"
-                          style={{ width: '100%', height: '100%', minHeight: 34, padding: '0 10px', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 13, color: '#1a1a22' }}
-                        />
-                      </td>
-
-                      {/* Precio */}
-                      <td style={tdBase}>
-                        <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px', gap: 4 }}>
-                          <span style={{ color: '#9a9aa3', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>$</span>
-                          <input
-                            type="text" value={row.precio}
-                            onChange={e => updRow(i, 'precio', e.target.value)}
-                            onBlur={e => { const n = parseFloat(e.target.value); if (!isNaN(n) && n > 0) updRow(i, 'precio', n.toFixed(2)) }}
-                            placeholder="0.00"
-                            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#1a1a22', textAlign: 'right', minWidth: 0 }}
-                          />
-                        </div>
-                      </td>
-
-                      {/* Método */}
-                      <td style={{ ...tdBase, padding: 0, width: 52 }}>
-                        <div style={{ display: 'flex', height: '100%' }}>
-                          {[['Efectivo','EF'], ['Banco','BK']].map(([m, label], mi) => (
-                            <div key={m}
-                              onClick={() => toggleMetodo(i, m)}
-                              style={{
-                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 10, fontWeight: row.metodo === m ? 800 : 600,
-                                color: row.metodo === m ? NAVY : '#bbb',
-                                cursor: 'pointer', userSelect: 'none',
-                                borderRight: mi === 0 ? `1px solid ${LINE_SOFT}` : 'none',
-                                background: row.metodo === m ? '#e7eefb' : 'transparent',
-                                transition: 'background 0.1s',
-                              }}
-                            >{label}</div>
-                          ))}
-                        </div>
-                      </td>
-
-                      {/* Borrar */}
-                      <td style={{ ...tdBase, textAlign: 'center' }}>
-                        <button
-                          onClick={() => deleteRow(i)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ddd', padding: 4, display: 'grid', placeItems: 'center' }}
-                          onMouseEnter={e => e.currentTarget.style.color = '#e57373'}
-                          onMouseLeave={e => e.currentTarget.style.color = '#ddd'}
-                        >
-                          <X size={13} />
-                        </button>
-                      </td>
+                      {isNota ? (
+                        <>
+                          {/* TIPO — fijo Venta */}
+                          <td style={{ ...tdBase, padding: 0, width: 54 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 10, fontWeight: 800, color: VENTA_TX, background: VENTA_BG }}>V</div>
+                          </td>
+                          {/* Producto — solo lectura con badge */}
+                          <td style={tdBase}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px' }}>
+                              <span style={{ fontSize: 9, fontWeight: 800, background: '#e7eefb', color: NAVY, padding: '2px 5px', borderRadius: 4, flexShrink: 0 }}>NOTA</span>
+                              <span style={{ fontSize: 13, color: '#1a1a22' }}>{row.producto}</span>
+                            </div>
+                          </td>
+                          {/* Precio — solo lectura */}
+                          <td style={tdBase}>
+                            <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px', gap: 4, justifyContent: 'flex-end' }}>
+                              <span style={{ color: '#9a9aa3', fontWeight: 700, fontSize: 13 }}>$</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a22' }}>{fmt(parseFloat(row.precio) || 0)}</span>
+                            </div>
+                          </td>
+                          {/* Método — solo lectura */}
+                          <td style={{ ...tdBase, textAlign: 'center', fontSize: 10, fontWeight: 800, color: NAVY, background: '#e7eefb' }}>
+                            {row.metodo === 'Efectivo' ? 'EF' : 'BK'}
+                          </td>
+                          {/* Sin botón borrar */}
+                          <td style={tdBase} />
+                        </>
+                      ) : (
+                        <>
+                          {/* TIPO */}
+                          <td style={{ ...tdBase, padding: 0, width: 54 }}>
+                            <div style={{ display: 'flex', height: '100%' }}>
+                              <div onClick={() => toggleTipo(i, 'venta')} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color: isV ? VENTA_TX : '#ccc', background: isV ? VENTA_BG : 'transparent', cursor:'pointer', borderRight:`1px solid ${LINE_SOFT}`, transition:'background 0.1s' }}>V</div>
+                              <div onClick={() => toggleTipo(i, 'salida')} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color: isS ? SALIDA_TX : '#ccc', background: isS ? SALIDA_BG : 'transparent', cursor:'pointer', transition:'background 0.1s' }}>S</div>
+                            </div>
+                          </td>
+                          {/* Producto */}
+                          <td style={tdBase}>
+                            <input value={row.producto} onChange={e => updRow(i, 'producto', e.target.value)} placeholder="Producto o descripción…"
+                              style={{ width:'100%', height:'100%', minHeight:34, padding:'0 10px', border:'none', outline:'none', background:'transparent', fontFamily:'inherit', fontSize:13, color:'#1a1a22' }} />
+                          </td>
+                          {/* Precio */}
+                          <td style={tdBase}>
+                            <div style={{ display:'flex', alignItems:'center', padding:'0 8px', gap:4 }}>
+                              <span style={{ color:'#9a9aa3', fontWeight:700, fontSize:13, flexShrink:0 }}>$</span>
+                              <input type="text" value={row.precio} onChange={e => updRow(i, 'precio', e.target.value)}
+                                onBlur={e => { const n = parseFloat(e.target.value); if (!isNaN(n) && n > 0) updRow(i, 'precio', n.toFixed(2)) }}
+                                placeholder="0.00"
+                                style={{ flex:1, border:'none', outline:'none', background:'transparent', fontFamily:'inherit', fontSize:13, fontWeight:700, color:'#1a1a22', textAlign:'right', minWidth:0 }} />
+                            </div>
+                          </td>
+                          {/* Método */}
+                          <td style={{ ...tdBase, padding:0, width:52 }}>
+                            <div style={{ display:'flex', height:'100%' }}>
+                              {[['Efectivo','EF'],['Banco','BK']].map(([m, label], mi) => (
+                                <div key={m} onClick={() => toggleMetodo(i, m)}
+                                  style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight: row.metodo===m ? 800 : 600, color: row.metodo===m ? NAVY : '#bbb', cursor:'pointer', userSelect:'none', borderRight: mi===0 ? `1px solid ${LINE_SOFT}` : 'none', background: row.metodo===m ? '#e7eefb' : 'transparent', transition:'background 0.1s' }}>
+                                  {label}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                          {/* Borrar */}
+                          <td style={{ ...tdBase, textAlign:'center' }}>
+                            <button onClick={() => deleteRow(i)} style={{ background:'none', border:'none', cursor:'pointer', color:'#ddd', padding:4, display:'grid', placeItems:'center' }}
+                              onMouseEnter={e => e.currentTarget.style.color='#e57373'}
+                              onMouseLeave={e => e.currentTarget.style.color='#ddd'}>
+                              <X size={13} />
+                            </button>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   )
                 })}

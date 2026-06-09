@@ -54,27 +54,55 @@ export default function App() {
   }, [])
 
 
+  // ── Sync pagos SR de una nota → sanramon_rows ────────────────
+  const syncNotaSRPayments = async (nota) => {
+    const existing = srRows.filter(r => r.notaId === nota.id)
+    await Promise.all(existing.map(r => deleteDoc(doc(db, 'sanramon_rows', r.id))))
+    const srPagos = (nota.pagos || []).filter(p => p.sucursal === 'SR' && p.monto && p.fecha && p.metodoPago)
+    await Promise.all(srPagos.map((p, idx) => {
+      const id = `nota_${nota.id}_sr_${idx}`
+      return setDoc(doc(db, 'sanramon_rows', id), {
+        id,
+        fecha: p.fecha,
+        tipo: 'venta',
+        producto: `Nota ${nota.folio}`,
+        precio: parseFloat(p.monto) || 0,
+        metodo: p.metodoPago === 'Efectivo' ? 'Efectivo' : 'Banco',
+        fromNota: true,
+        notaId: nota.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }))
+  }
+
   // ── CRUD notas ────────────────────────────────────────────────
   const handleSaveNota = async (nota) => {
     const counterRef = doc(db, 'config', 'folio_counter')
     const currentNotas = notas
+    let notaFinal = nota
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(counterRef)
       const current = snap.exists()
         ? snap.data().current
         : currentNotas.reduce((max, n) => Math.max(max, parseInt(n.folio?.replace('#', '') || '0')), 0)
       const nextFolio = current + 1
+      notaFinal = { ...nota, folio: `#${nextFolio}` }
       tx.set(counterRef, { current: nextFolio })
-      tx.set(doc(db, 'notas', nota.id), { ...nota, folio: `#${nextFolio}` })
+      tx.set(doc(db, 'notas', nota.id), notaFinal)
     })
+    await syncNotaSRPayments(notaFinal)
     setView('historial')
   }
 
-  const handleEditNota = (notaEditada) => {
-    setDoc(doc(db, 'notas', notaEditada.id), notaEditada)
+  const handleEditNota = async (notaEditada) => {
+    await setDoc(doc(db, 'notas', notaEditada.id), notaEditada)
+    await syncNotaSRPayments(notaEditada)
   }
 
   const handleDeleteNota = async (notaId) => {
+    const srToDelete = srRows.filter(r => r.notaId === notaId)
+    await Promise.all(srToDelete.map(r => deleteDoc(doc(db, 'sanramon_rows', r.id))))
     await deleteDoc(doc(db, 'notas', notaId))
     const remaining = notas.filter(n => n.id !== notaId)
     const maxFolio  = remaining.reduce((max, n) => Math.max(max, parseInt(n.folio?.replace('#', '') || '0')), 0)
