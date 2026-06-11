@@ -245,14 +245,10 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       (n.pagos || []).forEach(p => {
         const pf = p.fecha || n.createdAt
         if (!beforeThisWeek(pf)) return
+        if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
         const m = parseFloat(p.monto) || 0
-        if (p.sucursal === 'SR') {
-          if (p.metodoPago === 'Efectivo') prevSrEfV += m
-          else                             prevSrBancoV += m
-        } else {
-          if (p.metodoPago === 'Efectivo')                                      prevBklEf    += m
-          if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  prevBklBanco += m
-        }
+        if (p.metodoPago === 'Efectivo')                                      prevBklEf    += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  prevBklBanco += m
       })
     )
 
@@ -285,14 +281,10 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       (n.pagos || []).forEach(p => {
         const pf = p.fecha || n.createdAt
         if (!inThisWeek(pf)) return
+        if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
         const m = parseFloat(p.monto) || 0
-        if (p.sucursal === 'SR') {
-          if (p.metodoPago === 'Efectivo') srCashVentas += m
-          else                             srBankVentas += m
-        } else {
-          if (p.metodoPago === 'Efectivo')                                      bklCashIng += m
-          if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  bklBankIng += m
-        }
+        if (p.metodoPago === 'Efectivo')                                      bklCashIng += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  bklBankIng += m
       })
     )
 
