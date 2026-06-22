@@ -308,7 +308,7 @@ export default function SanRamonCard({ onSrChange }) {
                   {/* Método */}
                   <td style={{ ...tdBase, padding: 0 }}>
                     <div style={{ display: 'flex', height: '100%' }}>
-                      {['Efectivo', 'Banco'].map((m, mi) => (
+                      {['Efectivo', 'Banco Day', 'Banco JORGE'].map((m, mi) => (
                         <div key={m}
                           onClick={() => toggleMetodo(i, m)}
                           style={{
@@ -316,7 +316,7 @@ export default function SanRamonCard({ onSrChange }) {
                             fontSize: 11, fontWeight: row.metodo === m ? 800 : 600,
                             color: row.metodo === m ? NAVY : '#aaa',
                             cursor: 'pointer', userSelect: 'none',
-                            borderRight: mi === 0 ? `1px solid ${LINE_SOFT}` : 'none',
+                            borderRight: mi < 2 ? `1px solid ${LINE_SOFT}` : 'none',
                             background: row.metodo === m ? '#e7eefb' : 'transparent',
                             transition: 'background 0.12s',
                           }}

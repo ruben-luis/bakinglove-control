@@ -98,7 +98,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
   const srVentasDia = (srRows || []).filter(r => r.tipo === 'venta' && r.fecha === filterDate)
 
   // Cálculo dinámico: saldo inicial (semilla + historial) + acumulado semanal
-  const { saldoInicialEfectivo, saldoInicialBancos, acum, gastoAcum } = useMemo(() => {
+  const { saldoInicialEfectivo, saldoInicialBancosDay, saldoInicialBancosJorge, acum, gastoAcum } = useMemo(() => {
     const tmp = new Date(refDate)
     const dow = tmp.getDay()
     const wStart = new Date(tmp); wStart.setDate(tmp.getDate() - ((dow + 6) % 7)); wStart.setHours(0, 0, 0, 0)
@@ -114,19 +114,21 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     , null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
 
     // Acumular TODO antes de esta semana
-    let prevBklEf=0, prevBklBanco=0, prevBklEfGast=0, prevBklBancoGast=0
-    let prevSrEfV=0, prevSrBancoV=0, prevSrEfS=0, prevSrBancoS=0
+    let prevBklEf=0, prevBklBancoDay=0, prevBklBancoJorge=0, prevBklEfGast=0, prevBklBancoGast=0
+    let prevSrEfV=0, prevSrBancoDayV=0, prevSrBancoJorgeV=0, prevSrEfS=0, prevSrBancoDayS=0, prevSrBancoJorgeS=0
 
     notas.forEach(n => (n.pagos||[]).forEach(p => {
       const pf = p.fecha || n.createdAt
       if (!beforeWk(pf)) return
       const m = parseFloat(p.monto) || 0
       if (p.sucursal === 'SR') {
-        if (p.metodoPago === 'Efectivo') prevSrEfV += m
-        else prevSrBancoV += m
+        if (p.metodoPago === 'Efectivo')    prevSrEfV         += m
+        else if (p.metodoPago === 'Banco JORGE') prevSrBancoJorgeV += m
+        else                                prevSrBancoDayV   += m
       } else {
-        if (p.metodoPago === 'Efectivo') prevBklEf += m
-        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia') prevBklBanco += m
+        if (p.metodoPago === 'Efectivo')    prevBklEf         += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay += m
+        if (p.metodoPago === 'Banco JORGE') prevBklBancoJorge += m
       }
     }))
     gastos.forEach(g => {
@@ -139,36 +141,43 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     srRows.forEach(r => {
       if (!r.fecha || !beforeWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') prevSrEfV    += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco')    prevSrBancoV += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo') prevSrEfS    += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco')    prevSrBancoS += m
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')    prevSrEfV         += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco Day')   prevSrBancoDayV   += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE') prevSrBancoJorgeV += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo')    prevSrEfS         += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco Day')   prevSrBancoDayS   += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE') prevSrBancoJorgeS += m
     })
 
-    const saldoEfBkl = (seed.efectivoBkl||0) + prevBklEf    - prevBklEfGast
-    const saldoEfSr  = (seed.efectivoSr||0)  + prevSrEfV    - prevSrEfS
-    const saldoBk    = (seed.bancos||0) + prevBklBanco - prevBklBancoGast + prevSrBancoV - prevSrBancoS
+    const saldoEfBkl  = (seed.efectivoBkl||0) + prevBklEf         - prevBklEfGast
+    const saldoEfSr   = (seed.efectivoSr||0)  + prevSrEfV         - prevSrEfS
+    const saldoBkDay  = (seed.bancos||0)       + prevBklBancoDay   - prevBklBancoGast + prevSrBancoDayV   - prevSrBancoDayS
+    const saldoBkJorge = (seed.bancosJorge||0) + prevBklBancoJorge                   + prevSrBancoJorgeV - prevSrBancoJorgeS
 
     // Acumulado ingresos: pagos de ESTA semana (por fecha del pago)
-    const acum = { Terminal: 0, Transferencia: 0, Efectivo: 0 }
+    const acum = { Terminal: 0, Transferencia: 0, Efectivo: 0, 'Banco Day': 0, 'Banco JORGE': 0 }
     notas.forEach(n => (n.pagos||[]).forEach(p => {
       const pf = p.fecha || n.createdAt
       if (!inWk(pf)) return
       const m = parseFloat(p.monto) || 0
       if (p.sucursal === 'SR') {
-        if (p.metodoPago === 'Efectivo') acum.Efectivo  += m
-        else                             acum.Terminal   += m
+        if (p.metodoPago === 'Efectivo')         acum.Efectivo      += m
+        else if (p.metodoPago === 'Banco JORGE') acum['Banco JORGE'] += m
+        else                                     acum['Banco Day']   += m
       } else {
-        if (p.metodoPago === 'Terminal')      acum.Terminal      += m
-        if (p.metodoPago === 'Transferencia') acum.Transferencia += m
-        if (p.metodoPago === 'Efectivo')      acum.Efectivo      += m
+        if (p.metodoPago === 'Terminal')      acum.Terminal       += m
+        if (p.metodoPago === 'Transferencia') acum.Transferencia  += m
+        if (p.metodoPago === 'Efectivo')      acum.Efectivo       += m
+        if (p.metodoPago === 'Banco Day')     acum['Banco Day']   += m
+        if (p.metodoPago === 'Banco JORGE')   acum['Banco JORGE'] += m
       }
     }))
     srRows.forEach(r => {
       if (r.tipo !== 'venta' || !r.fecha || !inWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.metodo === 'Banco')         acum.Terminal  += m
-      else if (r.metodo === 'Efectivo') acum.Efectivo  += m
+      if (r.metodo === 'Banco Day')         acum['Banco Day']   += m
+      else if (r.metodo === 'Banco JORGE')  acum['Banco JORGE'] += m
+      else if (r.metodo === 'Efectivo')     acum.Efectivo       += m
     })
 
     // Acumulado gastos de ESTA semana
@@ -184,28 +193,32 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     srRows.forEach(r => {
       if (r.tipo !== 'salida' || !r.fecha || !inWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.metodo === 'Banco')         gastoAcum.Tarjeta  += m
+      if (r.metodo === 'Banco Day' || r.metodo === 'Banco JORGE') gastoAcum.Tarjeta  += m
       else if (r.metodo === 'Efectivo') gastoAcum.Efectivo += m
     })
 
     return {
-      saldoInicialEfectivo: saldoEfBkl + saldoEfSr,
-      saldoInicialBancos:   saldoBk,
+      saldoInicialEfectivo:    saldoEfBkl + saldoEfSr,
+      saldoInicialBancosDay:   saldoBkDay,
+      saldoInicialBancosJorge: saldoBkJorge,
       acum, gastoAcum,
     }
   }, [notas, gastos, srRows, saldosSemana, refDate])
 
   // Totales derivados
-  const ingBancos   = acum.Terminal + acum.Transferencia
-  const ingEfectivo = acum.Efectivo
-  const gastoBancos   = gastoAcum.Tarjeta + gastoAcum.Transferencia
-  const gastoEfectivo = gastoAcum.Efectivo
-  const totalBancos   = ingBancos
-  const totalEfectivo = ingEfectivo
-  const totalGeneral  = totalBancos + totalEfectivo
-  const saldoBancos   = saldoInicialBancos   + ingBancos   - gastoBancos
-  const saldoEfectivo = saldoInicialEfectivo + ingEfectivo - gastoEfectivo
-  const saldoTotal    = saldoBancos + saldoEfectivo
+  const ingBancosDay    = acum.Terminal + acum.Transferencia + acum['Banco Day']
+  const ingBancosJorge  = acum['Banco JORGE']
+  const ingEfectivo     = acum.Efectivo
+  const gastoBancos     = gastoAcum.Tarjeta + gastoAcum.Transferencia
+  const gastoEfectivo   = gastoAcum.Efectivo
+  const totalBancosDay  = ingBancosDay
+  const totalBancosJorge = ingBancosJorge
+  const totalEfectivo   = ingEfectivo
+  const totalGeneral    = totalBancosDay + totalBancosJorge + totalEfectivo
+  const saldoBancosDay  = saldoInicialBancosDay  + ingBancosDay  - gastoBancos
+  const saldoBancosJorge = saldoInicialBancosJorge + ingBancosJorge
+  const saldoEfectivo   = saldoInicialEfectivo + ingEfectivo - gastoEfectivo
+  const saldoTotal      = saldoBancosDay + saldoBancosJorge + saldoEfectivo
 
   const prevWeek = () => {
     const d = new Date(refDate); d.setDate(d.getDate() - 7); setRefDate(d)
@@ -297,14 +310,16 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
         <div className="grid grid-cols-2 gap-3">
           <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard">
             <TableHead label="SALDO INICIAL" />
-            <SaldoRow label="Bancos"   value={fmt(saldoInicialBancos)}   />
-            <SaldoRow label="Efectivo" value={fmt(saldoInicialEfectivo)} last />
-            <TotalGreenRow value={saldoInicialBancos + saldoInicialEfectivo > 0 ? fmtShort(saldoInicialBancos + saldoInicialEfectivo) : '-'} />
+            <SaldoRow label="Banco Day"   value={fmt(saldoInicialBancosDay)}   />
+            <SaldoRow label="Banco JORGE" value={fmt(saldoInicialBancosJorge)} />
+            <SaldoRow label="Efectivo"    value={fmt(saldoInicialEfectivo)}    last />
+            <TotalGreenRow value={saldoInicialBancosDay + saldoInicialBancosJorge + saldoInicialEfectivo > 0 ? fmtShort(saldoInicialBancosDay + saldoInicialBancosJorge + saldoInicialEfectivo) : '-'} />
           </div>
           <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard">
             <TableHead label="SALDO FINAL" />
-            <SaldoRow label="Bancos"   value={fmt(saldoBancos)}   />
-            <SaldoRow label="Efectivo" value={fmt(saldoEfectivo)} last />
+            <SaldoRow label="Banco Day"   value={fmt(saldoBancosDay)}   />
+            <SaldoRow label="Banco JORGE" value={fmt(saldoBancosJorge)} />
+            <SaldoRow label="Efectivo"    value={fmt(saldoEfectivo)}    last />
             <TotalGreenRow value={saldoTotal !== 0 ? fmtShort(saldoTotal) : '-'} />
           </div>
         </div>
@@ -369,9 +384,11 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
 
                   const pagosValidos = (nota.pagos || []).filter(p => p.metodoPago && p.monto)
                   const pagoColors = {
-                    Transferencia: 'bg-sky-soft/60 text-sky-700',
-                    Efectivo:      'bg-mint-soft/60 text-green-700',
-                    Terminal:      'bg-lilac-soft/60 text-purple-700',
+                    Transferencia:  'bg-sky-soft/60 text-sky-700',
+                    Efectivo:       'bg-mint-soft/60 text-green-700',
+                    Terminal:       'bg-lilac-soft/60 text-purple-700',
+                    'Banco Day':    'bg-sky-soft/60 text-sky-700',
+                    'Banco JORGE':  'bg-amber-50 text-amber-700',
                   }
 
                   return (
@@ -467,14 +484,14 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
         {/* Acumulado de ingresos */}
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="ACUMULADO DE INGRESOS" />
-          <div className="grid grid-cols-3 bg-mint-soft text-ink">
-            {['Terminal', 'Transferencia', 'Efectivo'].map(m => (
-              <div key={m} className="px-2 py-2 text-[10px] font-bold text-center border-r border-mint-deep/20 last:border-r-0">{m}</div>
+          <div className="grid grid-cols-5 bg-mint-soft text-ink">
+            {['Terminal', 'Transferencia', 'Efectivo', 'Banco Day', 'Banco JORGE'].map(m => (
+              <div key={m} className="px-1 py-2 text-[10px] font-bold text-center border-r border-mint-deep/20 last:border-r-0">{m}</div>
             ))}
           </div>
-          <div className="grid grid-cols-3">
-            {['Terminal', 'Transferencia', 'Efectivo'].map(m => (
-              <div key={m} className="px-2 py-3 text-[10px] font-bold text-ink text-center border-r border-ink/10 last:border-r-0 bg-mint-soft/30">
+          <div className="grid grid-cols-5">
+            {['Terminal', 'Transferencia', 'Efectivo', 'Banco Day', 'Banco JORGE'].map(m => (
+              <div key={m} className="px-1 py-3 text-[10px] font-bold text-ink text-center border-r border-ink/10 last:border-r-0 bg-mint-soft/30">
                 {acum[m] > 0 ? fmtShort(acum[m]) : '$ -'}
               </div>
             ))}
@@ -485,8 +502,12 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="TOTAL INGRESOS" />
           <div className="grid grid-cols-2 bg-ink text-cream">
-            <div className="px-3 py-2.5 text-[10px] font-bold border-r border-cream/20">Bancos</div>
-            <div className="px-3 py-2.5 text-[10px] text-right">{fmt(totalBancos)}</div>
+            <div className="px-3 py-2.5 text-[10px] font-bold border-r border-cream/20">Banco Day</div>
+            <div className="px-3 py-2.5 text-[10px] text-right">{fmt(totalBancosDay)}</div>
+          </div>
+          <div className="grid grid-cols-2 bg-ink text-cream border-t border-cream/10">
+            <div className="px-3 py-2.5 text-[10px] font-bold border-r border-cream/20">Banco JORGE</div>
+            <div className="px-3 py-2.5 text-[10px] text-right">{fmt(totalBancosJorge)}</div>
           </div>
           <div className="grid grid-cols-2 bg-ink text-cream border-t border-cream/10">
             <div className="px-3 py-2.5 text-[10px] font-bold border-r border-cream/20">Efectivo</div>

@@ -67,7 +67,7 @@ export default function App() {
         tipo: 'venta',
         producto: `Nota ${nota.folio}`,
         precio: parseFloat(p.monto) || 0,
-        metodo: p.metodoPago === 'Efectivo' ? 'Efectivo' : 'Banco',
+        metodo: p.metodoPago === 'Efectivo' ? 'Efectivo' : p.metodoPago === 'Banco JORGE' ? 'Banco JORGE' : 'Banco Day',
         fromNota: true,
         notaId: nota.id,
         createdAt: new Date().toISOString(),

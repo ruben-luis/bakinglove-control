@@ -200,7 +200,7 @@ export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana
   const seed = saldosSemana.reduce((earliest, s) =>
     !earliest || s.id < earliest.id ? s : earliest
   , null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
-  const seedTotal = (seed.efectivoBkl || 0) + (seed.efectivoSr || 0) + (seed.bancos || 0)
+  const seedTotal = (seed.efectivoBkl || 0) + (seed.efectivoSr || 0) + (seed.bancos || 0) + (seed.bancosJorge || 0)
 
   const balHead = ['Semana', 'Ingresos BKL', 'Gastos BKL', 'Balance BKL', 'Ventas SR', 'Salidas SR', 'Balance SR', 'Flujo Neto', 'Saldo Final']
 

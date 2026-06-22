@@ -213,10 +213,10 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
   const [rainKey, setRainKey] = useState(0)
 
   const {
-    saldoInicioEfBkl, saldoInicioEfSr, seedBancos,
-    bklBancosAcum, srBancosAcum,
-    bklCashIng, bklBankIng, bklCashGast, bklBankGast,
-    srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
+    saldoInicioEfBkl, saldoInicioEfSr, seedBancos, seedBancosJorge,
+    bklBancosAcumDay, bklBancosAcumJorge, srBancosAcumDay, srBancosAcumJorge,
+    bklCashIng, bklBankIngDay, bklBankIngJorge, bklCashGast, bklBankGast,
+    srCashVentas, srBankVentasDay, srBankVentasJorge, srCashSalidas, srBankSalidasDay, srBankSalidasJorge,
     bklGanaste, bklGastaste, srVentas, srSalidas,
   } = useMemo(() => {
     const { mon, sun } = thisWeekRange()
@@ -238,8 +238,8 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
     }
 
     // ── Acumulado ANTES de esta semana (recalculado en tiempo real) ──
-    let prevBklEf = 0, prevBklBanco = 0, prevBklEfGast = 0, prevBklBancoGast = 0
-    let prevSrEfV = 0, prevSrBancoV = 0, prevSrEfS = 0, prevSrBancoS = 0
+    let prevBklEf = 0, prevBklBancoDay = 0, prevBklBancoJorge = 0, prevBklEfGast = 0, prevBklBancoGast = 0
+    let prevSrEfV = 0, prevSrBancoDayV = 0, prevSrBancoJorgeV = 0, prevSrEfS = 0, prevSrBancoDayS = 0, prevSrBancoJorgeS = 0
 
     notas.forEach(n =>
       (n.pagos || []).forEach(p => {
@@ -247,8 +247,9 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
         if (!beforeThisWeek(pf)) return
         if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
         const m = parseFloat(p.monto) || 0
-        if (p.metodoPago === 'Efectivo')                                      prevBklEf    += m
-        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  prevBklBanco += m
+        if (p.metodoPago === 'Efectivo')                                                                    prevBklEf         += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay  += m
+        if (p.metodoPago === 'Banco JORGE')                                                                  prevBklBancoJorge += m
       })
     )
 
@@ -263,19 +264,22 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
     srRows.forEach(r => {
       if (!r.fecha || !beforeThisWeek(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') prevSrEfV    += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco')    prevSrBancoV += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo') prevSrEfS    += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco')    prevSrBancoS += m
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')    prevSrEfV         += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco Day')   prevSrBancoDayV   += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE') prevSrBancoJorgeV += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo')    prevSrEfS         += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco Day')   prevSrBancoDayS   += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE') prevSrBancoJorgeS += m
     })
 
     const saldoInicioEfBkl = (seed.efectivoBkl || 0) + prevBklEf  - prevBklEfGast
     const saldoInicioEfSr  = (seed.efectivoSr  || 0) + prevSrEfV  - prevSrEfS
     const seedBancos       = seed.bancos || 0
+    const seedBancosJorge  = seed.bancosJorge || 0
 
     // ── Movimientos de ESTA semana ─────────────────────────────────
-    let bklCashIng = 0, bklBankIng = 0, bklCashGast = 0, bklBankGast = 0
-    let srCashVentas = 0, srBankVentas = 0, srCashSalidas = 0, srBankSalidas = 0
+    let bklCashIng = 0, bklBankIngDay = 0, bklBankIngJorge = 0, bklCashGast = 0, bklBankGast = 0
+    let srCashVentas = 0, srBankVentasDay = 0, srBankVentasJorge = 0, srCashSalidas = 0, srBankSalidasDay = 0, srBankSalidasJorge = 0
 
     notas.forEach(n =>
       (n.pagos || []).forEach(p => {
@@ -283,8 +287,9 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
         if (!inThisWeek(pf)) return
         if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
         const m = parseFloat(p.monto) || 0
-        if (p.metodoPago === 'Efectivo')                                      bklCashIng += m
-        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia')  bklBankIng += m
+        if (p.metodoPago === 'Efectivo')                                                                    bklCashIng      += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') bklBankIngDay   += m
+        if (p.metodoPago === 'Banco JORGE')                                                                  bklBankIngJorge += m
       })
     )
 
@@ -299,34 +304,41 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
     srRows.forEach(r => {
       if (!r.fecha || !inThisWeek(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.tipo === 'venta'  && r.metodo === 'Efectivo') srCashVentas  += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco')    srBankVentas  += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo') srCashSalidas += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco')    srBankSalidas += m
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')    srCashVentas      += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco Day')   srBankVentasDay   += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE') srBankVentasJorge += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo')    srCashSalidas     += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco Day')   srBankSalidasDay  += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE') srBankSalidasJorge += m
     })
 
-    // Bancos acumulados por sección (igual que efectivo: histórico + esta semana)
-    const bklBancosAcum = prevBklBanco + bklBankIng - prevBklBancoGast - bklBankGast
-    const srBancosAcum  = prevSrBancoV + srBankVentas - prevSrBancoS  - srBankSalidas
+    // Bancos acumulados por banco — separados
+    const bklBancosAcumDay   = prevBklBancoDay   + bklBankIngDay   - prevBklBancoGast - bklBankGast
+    const bklBancosAcumJorge = prevBklBancoJorge + bklBankIngJorge
+    const srBancosAcumDay    = prevSrBancoDayV   + srBankVentasDay  - prevSrBancoDayS  - srBankSalidasDay
+    const srBancosAcumJorge  = prevSrBancoJorgeV + srBankVentasJorge - prevSrBancoJorgeS - srBankSalidasJorge
 
     return {
-      saldoInicioEfBkl, saldoInicioEfSr, seedBancos,
-      bklBancosAcum, srBancosAcum,
-      bklCashIng, bklBankIng, bklCashGast, bklBankGast,
-      srCashVentas, srBankVentas, srCashSalidas, srBankSalidas,
-      bklGanaste:  bklCashIng + bklBankIng,
+      saldoInicioEfBkl, saldoInicioEfSr, seedBancos, seedBancosJorge,
+      bklBancosAcumDay, bklBancosAcumJorge, srBancosAcumDay, srBancosAcumJorge,
+      bklCashIng, bklBankIngDay, bklBankIngJorge, bklCashGast, bklBankGast,
+      srCashVentas, srBankVentasDay, srBankVentasJorge, srCashSalidas, srBankSalidasDay, srBankSalidasJorge,
+      bklGanaste:  bklCashIng + bklBankIngDay + bklBankIngJorge,
       bklGastaste: bklCashGast + bklBankGast,
-      srVentas:    srCashVentas + srBankVentas,
-      srSalidas:   srCashSalidas + srBankSalidas,
+      srVentas:    srCashVentas + srBankVentasDay + srBankVentasJorge,
+      srSalidas:   srCashSalidas + srBankSalidasDay + srBankSalidasJorge,
     }
   }, [notas, gastos, srRows, saldosSemana])
 
-  const bklEfectivo = saldoInicioEfBkl + bklCashIng   - bklCashGast
-  const srEfectivo  = saldoInicioEfSr  + srCashVentas - srCashSalidas
-  const bklBancos   = bklBancosAcum   // acumulado histórico + esta semana
-  const srBancos    = srBancosAcum    // acumulado histórico + esta semana
-  const totalBancos = seedBancos + bklBancosAcum + srBancosAcum
-  const totalTienes = bklEfectivo + srEfectivo + totalBancos
+  const bklEfectivo    = saldoInicioEfBkl + bklCashIng   - bklCashGast
+  const srEfectivo     = saldoInicioEfSr  + srCashVentas - srCashSalidas
+  const bklBancosDay   = bklBancosAcumDay
+  const bklBancosJorge = bklBancosAcumJorge
+  const srBancosDay    = srBancosAcumDay
+  const srBancosJorge  = srBancosAcumJorge
+  const totalBancosDay   = seedBancos      + bklBancosAcumDay   + srBancosAcumDay
+  const totalBancosJorge = seedBancosJorge + bklBancosAcumJorge + srBancosAcumJorge
+  const totalTienes = bklEfectivo + srEfectivo + totalBancosDay + totalBancosJorge
   const positivo    = totalTienes >= 0
 
   useEffect(() => { setRainKey(k => k + 1) }, [bklGanaste, bklGastaste, srVentas, srSalidas])
@@ -353,41 +365,47 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
 
           {/* ── Bakinglove ─────────────────────────────────── */}
           <SectionLabel>● Bakinglove</SectionLabel>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr' }}>
-            <StatBox label="Ganaste"  amount={bklGanaste}  color="#6ee7b7" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr 1px 1fr' }}>
+            <StatBox label="Ganaste"     amount={bklGanaste}     color="#6ee7b7" />
             {sep}
-            <StatBox label="Gastaste" amount={bklGastaste} color="#fca5a5" />
+            <StatBox label="Gastaste"    amount={bklGastaste}    color="#fca5a5" />
             {sep}
-            <StatBox label="Efectivo" amount={bklEfectivo} color={bklEfectivo >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+            <StatBox label="Efectivo"    amount={bklEfectivo}    color={bklEfectivo >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
             {sep}
-            <StatBox label="Bancos"   amount={bklBancos}   color={bklBancos >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+            <StatBox label="Banco Day"   amount={bklBancosDay}   color={bklBancosDay >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+            {sep}
+            <StatBox label="Banco JORGE" amount={bklBancosJorge} color={bklBancosJorge >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
           </div>
 
           {/* ── San Ramón ───────────────────────────────────── */}
           <div style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
             <SectionLabel color="rgba(249,168,212,.6)">● San Ramón</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr' }}>
-              <StatBox label="Ventas"   amount={srVentas}   color="#6ee7b7" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr 1px 1fr' }}>
+              <StatBox label="Ventas"      amount={srVentas}      color="#6ee7b7" />
               {sep}
-              <StatBox label="Salidas"  amount={srSalidas}  color="#fca5a5" />
+              <StatBox label="Salidas"     amount={srSalidas}     color="#fca5a5" />
               {sep}
-              <StatBox label="Efectivo" amount={srEfectivo} color={srEfectivo >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+              <StatBox label="Efectivo"    amount={srEfectivo}    color={srEfectivo >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
               {sep}
-              <StatBox label="Bancos"   amount={srBancos}   color={srBancos >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+              <StatBox label="Banco Day"   amount={srBancosDay}   color={srBancosDay >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+              {sep}
+              <StatBox label="Banco JORGE" amount={srBancosJorge} color={srBancosJorge >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
             </div>
           </div>
 
           {/* ── Total general ───────────────────────────────── */}
           <div style={{ borderTop: '2px solid rgba(255,255,255,.18)' }}>
             <SectionLabel color="rgba(255,255,255,.5)">◆ Total general</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr' }}>
-              <StatBox label="T. Ganado"  amount={bklGanaste + srVentas}   color="#6ee7b7" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr 1px 1fr' }}>
+              <StatBox label="T. Ganado"   amount={bklGanaste + srVentas}            color="#6ee7b7" />
               {sep}
-              <StatBox label="T. Gastado" amount={bklGastaste + srSalidas}  color="#fca5a5" />
+              <StatBox label="T. Gastado"  amount={bklGastaste + srSalidas}           color="#fca5a5" />
               {sep}
-              <StatBox label="Efectivo"   amount={bklEfectivo + srEfectivo} color={(bklEfectivo + srEfectivo) >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+              <StatBox label="Efectivo"    amount={bklEfectivo + srEfectivo}          color={(bklEfectivo + srEfectivo) >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
               {sep}
-              <StatBox label="Bancos"     amount={totalBancos}              color={totalBancos >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+              <StatBox label="Banco Day"   amount={totalBancosDay}                    color={totalBancosDay >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+              {sep}
+              <StatBox label="Banco JORGE" amount={totalBancosJorge}                  color={totalBancosJorge >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
             </div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,.12)', padding: '10px 0 4px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
               <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, color: 'rgba(255,255,255,.4)', marginRight: 8 }}>TOTAL TIENES</span>
