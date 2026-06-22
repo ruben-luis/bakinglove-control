@@ -120,16 +120,11 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     notas.forEach(n => (n.pagos||[]).forEach(p => {
       const pf = p.fecha || n.createdAt
       if (!beforeWk(pf)) return
+      if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
       const m = parseFloat(p.monto) || 0
-      if (p.sucursal === 'SR') {
-        if (p.metodoPago === 'Efectivo')    prevSrEfV         += m
-        else if (p.metodoPago === 'Banco JORGE') prevSrBancoJorgeV += m
-        else                                prevSrBancoDayV   += m
-      } else {
-        if (p.metodoPago === 'Efectivo')    prevBklEf         += m
-        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay += m
-        if (p.metodoPago === 'Banco JORGE') prevBklBancoJorge += m
-      }
+      if (p.metodoPago === 'Efectivo')    prevBklEf         += m
+      if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay += m
+      if (p.metodoPago === 'Banco JORGE') prevBklBancoJorge += m
     }))
     gastos.forEach(g => {
       const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
@@ -160,18 +155,13 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     notas.forEach(n => (n.pagos||[]).forEach(p => {
       const pf = p.fecha || n.createdAt
       if (!inWk(pf)) return
+      if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
       const m = parseFloat(p.monto) || 0
-      if (p.sucursal === 'SR') {
-        if (p.metodoPago === 'Efectivo')         acum.Efectivo      += m
-        else if (p.metodoPago === 'Banco JORGE') acum['Banco JORGE'] += m
-        else                                     acum['Banco Day']   += m
-      } else {
-        if (p.metodoPago === 'Terminal')      acum.Terminal       += m
-        if (p.metodoPago === 'Transferencia') acum.Transferencia  += m
-        if (p.metodoPago === 'Efectivo')      acum.Efectivo       += m
-        if (p.metodoPago === 'Banco Day')     acum['Banco Day']   += m
-        if (p.metodoPago === 'Banco JORGE')   acum['Banco JORGE'] += m
-      }
+      if (p.metodoPago === 'Terminal')      acum.Terminal       += m
+      if (p.metodoPago === 'Transferencia') acum.Transferencia  += m
+      if (p.metodoPago === 'Efectivo')      acum.Efectivo       += m
+      if (p.metodoPago === 'Banco Day')     acum['Banco Day']   += m
+      if (p.metodoPago === 'Banco JORGE')   acum['Banco JORGE'] += m
     }))
     srRows.forEach(r => {
       if (r.tipo !== 'venta' || !r.fecha || !inWk(r.fecha)) return
