@@ -12,7 +12,7 @@ function labelDia(isoStr) {
   return `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]}`
 }
 
-const FORMAS_PAGO = ['Banco Day', 'Banco JORGE', 'Transferencia', 'Efectivo']
+const FORMAS_PAGO = ['Terminal', 'Transferencia', 'Banco JORGE', 'Efectivo']
 const CATEGORIAS  = ['Pasteleria', 'Personal']
 
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
@@ -217,25 +217,26 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], sal
   const acumWEnd = new Date(acumWStart); acumWEnd.setDate(acumWStart.getDate() + 6); acumWEnd.setHours(23, 59, 59, 999)
   const inSelWeek = (f) => { if (!f) return false; const d = new Date(f.length === 10 ? f + 'T12:00:00' : f); return d >= acumWStart && d <= acumWEnd }
 
-  const acumPago = { 'Banco Day': 0, 'Banco JORGE': 0, Transferencia: 0, Efectivo: 0 }
+  const acumPago = { Terminal: 0, Transferencia: 0, 'Banco JORGE': 0, Efectivo: 0 }
   const acumCat  = { Pasteleria: 0, Personal: 0 }
 
   rows.forEach(r => {
     if (!inSelWeek(r.fecha)) return
     const m = parseFloat(r.monto) || 0
-    const forma = r.formaPago === 'Tarjeta' ? 'Banco Day' : r.formaPago
+    const forma = (r.formaPago === 'Tarjeta' || r.formaPago === 'Banco Day') ? 'Terminal' : r.formaPago
     if (forma && acumPago[forma] !== undefined) acumPago[forma] += m
     if (r.categoria && acumCat[r.categoria]  !== undefined) acumCat[r.categoria]  += m
   })
   srSalidasMes.forEach(r => {
     if (!inSelWeek(r.fecha)) return
     const m = parseFloat(r.precio) || 0
-    if (r.metodo === 'Banco Day')      acumPago['Banco Day']   += m
-    else if (r.metodo === 'Banco JORGE') acumPago['Banco JORGE'] += m
-    else if (r.metodo === 'Efectivo')    acumPago.Efectivo       += m
+    if (r.metodo === 'Terminal' || r.metodo === 'Banco Day') acumPago.Terminal       += m
+    else if (r.metodo === 'Transferencia')                   acumPago.Transferencia  += m
+    else if (r.metodo === 'Banco JORGE')                     acumPago['Banco JORGE'] += m
+    else if (r.metodo === 'Efectivo')                        acumPago.Efectivo       += m
   })
 
-  const totalBancosDay   = acumPago['Banco Day'] + acumPago.Transferencia
+  const totalBancosDay   = acumPago.Terminal + acumPago.Transferencia
   const totalBancosJorge = acumPago['Banco JORGE']
   const totalEfectivo    = acumPago.Efectivo
   const totalGeneral     = totalBancosDay + totalBancosJorge + totalEfectivo
@@ -416,12 +417,12 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], sal
         <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
           <TableHead label="ACUMULADO DE SALIDAS" />
           <div className="grid grid-cols-4 bg-sky-soft text-ink">
-            {['Banco Day', 'Banco JORGE', 'Transferencia', 'Efectivo'].map(m => (
+            {['Terminal', 'Transferencia', 'Banco JORGE', 'Efectivo'].map(m => (
               <div key={m} className="px-2 py-2 text-[10px] font-bold text-center border-r border-sky-deep/20 last:border-r-0">{m}</div>
             ))}
           </div>
           <div className="grid grid-cols-4">
-            {['Banco Day', 'Banco JORGE', 'Transferencia', 'Efectivo'].map(m => (
+            {['Terminal', 'Transferencia', 'Banco JORGE', 'Efectivo'].map(m => (
               <div key={m} className="px-2 py-3 text-[10px] font-bold text-ink text-center border-r border-ink/10 last:border-r-0 bg-red-50/60">
                 {acumPago[m] > 0 ? fmt(acumPago[m]) : '$ -'}
               </div>

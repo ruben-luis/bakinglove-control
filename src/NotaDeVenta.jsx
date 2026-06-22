@@ -30,7 +30,7 @@ const fmtDate   = (iso) => iso ? iso.split('-').reverse().join('/') : ''
 const emptyP = () => ({ cantidad: '', descripcion: '', precioU: '' })
 const emptyG = () => ({ monto: '', fecha: todayISO(), met: null, sucursal: 'BKL' })
 
-const METODOS = ['Transferencia', 'Efectivo', 'Terminal', 'Banco Day', 'Banco JORGE']
+const METODOS = ['Terminal', 'Transferencia', 'Efectivo', 'Banco JORGE']
 
 // ── Shared table styles ──────────────────────────────────────
 const LAB = {

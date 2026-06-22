@@ -265,12 +265,12 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
     srRows.forEach(r => {
       if (!r.fecha || !beforeThisWeek(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')    prevSrEfV         += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco Day')   prevSrBancoDayV   += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE') prevSrBancoJorgeV += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo')    prevSrEfS         += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco Day')   prevSrBancoDayS   += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE') prevSrBancoJorgeS += m
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                       prevSrEfV         += m
+      if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayV += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                   prevSrBancoJorgeV += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                       prevSrEfS         += m
+      if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayS += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                   prevSrBancoJorgeS += m
     })
 
     const saldoInicioEfBkl = (seed.efectivoBkl || 0) + prevBklEf  - prevBklEfGast
@@ -306,12 +306,12 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
     srRows.forEach(r => {
       if (!r.fecha || !inThisWeek(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')    srCashVentas      += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco Day')   srBankVentasDay   += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE') srBankVentasJorge += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo')    srCashSalidas     += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco Day')   srBankSalidasDay  += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE') srBankSalidasJorge += m
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                       srCashVentas       += m
+      if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) srBankVentasDay  += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                   srBankVentasJorge  += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                       srCashSalidas      += m
+      if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) srBankSalidasDay += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                   srBankSalidasJorge += m
     })
 
     // Bancos acumulados por banco — separados

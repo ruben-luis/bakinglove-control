@@ -266,7 +266,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
                   <th style={{ ...thBase, width: 54 }}>TIPO</th>
                   <th style={{ ...thBase, textAlign: 'left', paddingLeft: 8 }}>PRODUCTO</th>
                   <th style={{ ...thBase, width: 80 }}>$ TOTAL</th>
-                  <th style={{ ...thBase, width: 78 }}>MÉT</th>
+                  <th style={{ ...thBase, width: 100 }}>MÉT</th>
                   <th style={{ ...thBase, width: 26 }}></th>
                 </tr>
               </thead>
@@ -308,7 +308,7 @@ export default function SanRamonView({ onBack, onSrChange }) {
                           </td>
                           {/* Método — solo lectura */}
                           <td style={{ ...tdBase, textAlign: 'center', fontSize: 10, fontWeight: 800, color: NAVY, background: '#e7eefb' }}>
-                            {row.metodo === 'Efectivo' ? 'EF' : row.metodo === 'Banco JORGE' ? 'BJ' : 'BD'}
+                            {row.metodo === 'Efectivo' ? 'EF' : row.metodo === 'Banco JORGE' ? 'BJ' : row.metodo === 'Terminal' ? 'TN' : row.metodo === 'Transferencia' ? 'TR' : 'BD'}
                           </td>
                           {/* Sin botón borrar */}
                           <td style={tdBase} />
@@ -338,11 +338,11 @@ export default function SanRamonView({ onBack, onSrChange }) {
                             </div>
                           </td>
                           {/* Método */}
-                          <td style={{ ...tdBase, padding:0, width:52 }}>
+                          <td style={{ ...tdBase, padding:0, width:100 }}>
                             <div style={{ display:'flex', height:'100%' }}>
-                              {[['Efectivo','EF'],['Banco Day','BD'],['Banco JORGE','BJ']].map(([m, label], mi) => (
+                              {[['Efectivo','EF'],['Terminal','TN'],['Transferencia','TR'],['Banco JORGE','BJ']].map(([m, label], mi) => (
                                 <div key={m} onClick={() => toggleMetodo(i, m)}
-                                  style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight: row.metodo===m ? 800 : 600, color: row.metodo===m ? NAVY : '#bbb', cursor:'pointer', userSelect:'none', borderRight: mi < 2 ? `1px solid ${LINE_SOFT}` : 'none', background: row.metodo===m ? '#e7eefb' : 'transparent', transition:'background 0.1s' }}>
+                                  style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight: row.metodo===m ? 800 : 600, color: row.metodo===m ? NAVY : '#bbb', cursor:'pointer', userSelect:'none', borderRight: mi < 3 ? `1px solid ${LINE_SOFT}` : 'none', background: row.metodo===m ? '#e7eefb' : 'transparent', transition:'background 0.1s' }}>
                                   {label}
                                 </div>
                               ))}
