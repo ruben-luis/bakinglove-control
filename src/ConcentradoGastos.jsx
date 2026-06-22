@@ -230,8 +230,8 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], sal
   srSalidasMes.forEach(r => {
     if (!inSelWeek(r.fecha)) return
     const m = parseFloat(r.precio) || 0
-    if (r.metodo === 'Terminal' || r.metodo === 'Banco Day') acumPago.Terminal       += m
-    else if (r.metodo === 'Transferencia')                   acumPago.Transferencia  += m
+    if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') acumPago.Terminal       += m
+    else if (r.metodo === 'Transferencia')                                          acumPago.Transferencia  += m
     else if (r.metodo === 'Banco JORGE')                     acumPago['Banco JORGE'] += m
     else if (r.metodo === 'Efectivo')                        acumPago.Efectivo       += m
   })

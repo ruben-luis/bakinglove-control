@@ -138,10 +138,10 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       if (!r.fecha || !beforeWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
       if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                            prevSrEfV         += m
-      if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayV += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                           prevSrBancoJorgeV += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                            prevSrEfS         += m
-      if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayS += m
+      if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayV += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                                               prevSrBancoJorgeV += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                                               prevSrEfS         += m
+      if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayS += m
       if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                           prevSrBancoJorgeS += m
     })
 
@@ -166,8 +166,8 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     srRows.forEach(r => {
       if (r.tipo !== 'venta' || !r.fecha || !inWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.metodo === 'Terminal' || r.metodo === 'Banco Day') acum.Terminal       += m
-      else if (r.metodo === 'Transferencia')                    acum.Transferencia  += m
+      if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') acum.Terminal       += m
+      else if (r.metodo === 'Transferencia')                                          acum.Transferencia  += m
       else if (r.metodo === 'Banco JORGE')                      acum['Banco JORGE'] += m
       else if (r.metodo === 'Efectivo')                         acum.Efectivo       += m
     })
@@ -186,8 +186,8 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     srRows.forEach(r => {
       if (r.tipo !== 'salida' || !r.fecha || !inWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.metodo === 'Terminal' || r.metodo === 'Banco Day') gastoAcum.Terminal      += m
-      else if (r.metodo === 'Transferencia')                    gastoAcum.Transferencia  += m
+      if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') gastoAcum.Terminal      += m
+      else if (r.metodo === 'Transferencia')                                          gastoAcum.Transferencia  += m
       else if (r.metodo === 'Banco JORGE')                      gastoAcum['Banco JORGE'] += m
       else if (r.metodo === 'Efectivo')                         gastoAcum.Efectivo       += m
     })
