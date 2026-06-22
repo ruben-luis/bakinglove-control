@@ -114,7 +114,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     , null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
 
     // Acumular TODO antes de esta semana
-    let prevBklEf=0, prevBklBancoDay=0, prevBklBancoJorge=0, prevBklEfGast=0, prevBklBancoGast=0
+    let prevBklEf=0, prevBklBancoDay=0, prevBklBancoJorge=0, prevBklEfGast=0, prevBklBancoGast=0, prevBklBancoJorgeGast=0
     let prevSrEfV=0, prevSrBancoDayV=0, prevSrBancoJorgeV=0, prevSrEfS=0, prevSrBancoDayS=0, prevSrBancoJorgeS=0
 
     notas.forEach(n => (n.pagos||[]).forEach(p => {
@@ -135,8 +135,9 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
       if (!beforeWk(f)) return
       const m = parseFloat(g.monto) || 0
-      if (g.formaPago === 'Efectivo') prevBklEfGast += m
-      if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') prevBklBancoGast += m
+      if (g.formaPago === 'Efectivo')                                                                    prevBklEfGast         += m
+      if (g.formaPago === 'Banco Day' || g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') prevBklBancoGast      += m
+      if (g.formaPago === 'Banco JORGE')                                                               prevBklBancoJorgeGast += m
     })
     srRows.forEach(r => {
       if (!r.fecha || !beforeWk(r.fecha)) return
@@ -152,7 +153,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     const saldoEfBkl  = (seed.efectivoBkl||0) + prevBklEf         - prevBklEfGast
     const saldoEfSr   = (seed.efectivoSr||0)  + prevSrEfV         - prevSrEfS
     const saldoBkDay  = (seed.bancos||0)       + prevBklBancoDay   - prevBklBancoGast + prevSrBancoDayV   - prevSrBancoDayS
-    const saldoBkJorge = (seed.bancosJorge||0) + prevBklBancoJorge                   + prevSrBancoJorgeV - prevSrBancoJorgeS
+    const saldoBkJorge = (seed.bancosJorge||0) + prevBklBancoJorge - prevBklBancoJorgeGast + prevSrBancoJorgeV - prevSrBancoJorgeS
 
     // Acumulado ingresos: pagos de ESTA semana (por fecha del pago)
     const acum = { Terminal: 0, Transferencia: 0, Efectivo: 0, 'Banco Day': 0, 'Banco JORGE': 0 }
@@ -181,20 +182,22 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     })
 
     // Acumulado gastos de ESTA semana
-    const gastoAcum = { Tarjeta: 0, Transferencia: 0, Efectivo: 0 }
+    const gastoAcum = { 'Banco Day': 0, 'Banco JORGE': 0, Transferencia: 0, Efectivo: 0 }
     gastos.forEach(g => {
       const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
       if (!inWk(f)) return
       const m = parseFloat(g.monto) || 0
-      if (g.formaPago === 'Tarjeta')       gastoAcum.Tarjeta       += m
-      if (g.formaPago === 'Transferencia') gastoAcum.Transferencia += m
-      if (g.formaPago === 'Efectivo')      gastoAcum.Efectivo      += m
+      if (g.formaPago === 'Banco Day' || g.formaPago === 'Tarjeta') gastoAcum['Banco Day']   += m
+      if (g.formaPago === 'Banco JORGE')                            gastoAcum['Banco JORGE'] += m
+      if (g.formaPago === 'Transferencia')                          gastoAcum.Transferencia  += m
+      if (g.formaPago === 'Efectivo')                               gastoAcum.Efectivo       += m
     })
     srRows.forEach(r => {
       if (r.tipo !== 'salida' || !r.fecha || !inWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
-      if (r.metodo === 'Banco Day' || r.metodo === 'Banco JORGE') gastoAcum.Tarjeta  += m
-      else if (r.metodo === 'Efectivo') gastoAcum.Efectivo += m
+      if (r.metodo === 'Banco Day')        gastoAcum['Banco Day']   += m
+      else if (r.metodo === 'Banco JORGE') gastoAcum['Banco JORGE'] += m
+      else if (r.metodo === 'Efectivo')    gastoAcum.Efectivo       += m
     })
 
     return {
@@ -209,14 +212,15 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
   const ingBancosDay    = acum.Terminal + acum.Transferencia + acum['Banco Day']
   const ingBancosJorge  = acum['Banco JORGE']
   const ingEfectivo     = acum.Efectivo
-  const gastoBancos     = gastoAcum.Tarjeta + gastoAcum.Transferencia
+  const gastoBancosDay   = gastoAcum['Banco Day'] + gastoAcum.Transferencia
+  const gastoBancosJorge = gastoAcum['Banco JORGE']
   const gastoEfectivo   = gastoAcum.Efectivo
   const totalBancosDay  = ingBancosDay
   const totalBancosJorge = ingBancosJorge
   const totalEfectivo   = ingEfectivo
   const totalGeneral    = totalBancosDay + totalBancosJorge + totalEfectivo
-  const saldoBancosDay  = saldoInicialBancosDay  + ingBancosDay  - gastoBancos
-  const saldoBancosJorge = saldoInicialBancosJorge + ingBancosJorge
+  const saldoBancosDay   = saldoInicialBancosDay   + ingBancosDay   - gastoBancosDay
+  const saldoBancosJorge = saldoInicialBancosJorge + ingBancosJorge - gastoBancosJorge
   const saldoEfectivo   = saldoInicialEfectivo + ingEfectivo - gastoEfectivo
   const saldoTotal      = saldoBancosDay + saldoBancosJorge + saldoEfectivo
 

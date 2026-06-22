@@ -238,7 +238,7 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
     }
 
     // ── Acumulado ANTES de esta semana (recalculado en tiempo real) ──
-    let prevBklEf = 0, prevBklBancoDay = 0, prevBklBancoJorge = 0, prevBklEfGast = 0, prevBklBancoGast = 0
+    let prevBklEf = 0, prevBklBancoDay = 0, prevBklBancoJorge = 0, prevBklEfGast = 0, prevBklBancoGast = 0, prevBklBancoJorgeGast = 0
     let prevSrEfV = 0, prevSrBancoDayV = 0, prevSrBancoJorgeV = 0, prevSrEfS = 0, prevSrBancoDayS = 0, prevSrBancoJorgeS = 0
 
     notas.forEach(n =>
@@ -257,8 +257,9 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
       if (!beforeThisWeek(f)) return
       const m = parseFloat(g.monto) || 0
-      if (g.formaPago === 'Efectivo')                                      prevBklEfGast    += m
-      if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia')    prevBklBancoGast += m
+      if (g.formaPago === 'Efectivo')                                                                    prevBklEfGast         += m
+      if (g.formaPago === 'Banco Day' || g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') prevBklBancoGast      += m
+      if (g.formaPago === 'Banco JORGE')                                                               prevBklBancoJorgeGast += m
     })
 
     srRows.forEach(r => {
@@ -278,7 +279,7 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
     const seedBancosJorge  = seed.bancosJorge || 0
 
     // ── Movimientos de ESTA semana ─────────────────────────────────
-    let bklCashIng = 0, bklBankIngDay = 0, bklBankIngJorge = 0, bklCashGast = 0, bklBankGast = 0
+    let bklCashIng = 0, bklBankIngDay = 0, bklBankIngJorge = 0, bklCashGast = 0, bklBankGast = 0, bklBankGastJorge = 0
     let srCashVentas = 0, srBankVentasDay = 0, srBankVentasJorge = 0, srCashSalidas = 0, srBankSalidasDay = 0, srBankSalidasJorge = 0
 
     notas.forEach(n =>
@@ -297,8 +298,9 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
       if (!inThisWeek(f)) return
       const m = parseFloat(g.monto) || 0
-      if (g.formaPago === 'Efectivo')                                      bklCashGast += m
-      if (g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia')    bklBankGast += m
+      if (g.formaPago === 'Efectivo')                                                                    bklCashGast      += m
+      if (g.formaPago === 'Banco Day' || g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') bklBankGast      += m
+      if (g.formaPago === 'Banco JORGE')                                                               bklBankGastJorge += m
     })
 
     srRows.forEach(r => {
@@ -314,7 +316,7 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
 
     // Bancos acumulados por banco — separados
     const bklBancosAcumDay   = prevBklBancoDay   + bklBankIngDay   - prevBklBancoGast - bklBankGast
-    const bklBancosAcumJorge = prevBklBancoJorge + bklBankIngJorge
+    const bklBancosAcumJorge = prevBklBancoJorge + bklBankIngJorge - prevBklBancoJorgeGast - bklBankGastJorge
     const srBancosAcumDay    = prevSrBancoDayV   + srBankVentasDay  - prevSrBancoDayS  - srBankSalidasDay
     const srBancosAcumJorge  = prevSrBancoJorgeV + srBankVentasJorge - prevSrBancoJorgeS - srBankSalidasJorge
 
@@ -324,7 +326,7 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       bklCashIng, bklBankIngDay, bklBankIngJorge, bklCashGast, bklBankGast,
       srCashVentas, srBankVentasDay, srBankVentasJorge, srCashSalidas, srBankSalidasDay, srBankSalidasJorge,
       bklGanaste:  bklCashIng + bklBankIngDay + bklBankIngJorge,
-      bklGastaste: bklCashGast + bklBankGast,
+      bklGastaste: bklCashGast + bklBankGast + bklBankGastJorge,
       srVentas:    srCashVentas + srBankVentasDay + srBankVentasJorge,
       srSalidas:   srCashSalidas + srBankSalidasDay + srBankSalidasJorge,
     }
