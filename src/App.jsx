@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import './index.css'
 import { db } from './firebase'
 import {
-  collection, onSnapshot,
+  collection, onSnapshot, query, where,
   doc, setDoc, deleteDoc, getDoc, runTransaction,
 } from 'firebase/firestore'
 import Dashboard from './Dashboard'
@@ -31,26 +31,35 @@ export default function App() {
       if (loaded.notas && loaded.gastos && loaded.sr) setLoading(false)
     }
 
-    const unsubNotas = onSnapshot(collection(db, 'notas'), snap => {
-      const data = snap.docs.map(d => d.data())
-      setNotas(data)
-      // Sincronizar contador de folio con Firestore
-      localStorage.setItem('bkl_folio_count', String(data.length))
-      loaded.notas = true; check()
-    })
+    const d90 = new Date(); d90.setDate(d90.getDate() - 90)
+    const ninetyDaysAgo = d90.toISOString()
+
+    const d60 = new Date(); d60.setDate(d60.getDate() - 60)
+    const twoMonthsAgo = d60.toISOString().slice(0, 10)
+
+    const unsubNotas = onSnapshot(
+      query(collection(db, 'notas'), where('createdAt', '>=', ninetyDaysAgo)),
+      snap => {
+        setNotas(snap.docs.map(d => d.data()))
+        loaded.notas = true; check()
+      }
+    )
     const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => {
       setGastos(snap.docs.map(d => d.data()))
       loaded.gastos = true; check()
     })
-    const unsubSR = onSnapshot(collection(db, 'sanramon_rows'), snap => {
-      setSrRows(snap.docs.map(d => d.data()))
-      loaded.sr = true; check()
-    })
-    onSnapshot(collection(db, 'saldos_semana'), snap => {
+    const unsubSR = onSnapshot(
+      query(collection(db, 'sanramon_rows'), where('fecha', '>=', twoMonthsAgo)),
+      snap => {
+        setSrRows(snap.docs.map(d => d.data()))
+        loaded.sr = true; check()
+      }
+    )
+    const unsubSaldos = onSnapshot(collection(db, 'saldos_semana'), snap => {
       setSaldosSemana(snap.docs.map(d => d.data()))
     })
 
-    return () => { unsubNotas(); unsubGastos(); unsubSR() }
+    return () => { unsubNotas(); unsubGastos(); unsubSR(); unsubSaldos() }
   }, [])
 
 
