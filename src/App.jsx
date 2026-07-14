@@ -34,8 +34,10 @@ export default function App() {
     const d90 = new Date(); d90.setDate(d90.getDate() - 90)
     const ninetyDaysAgo = d90.toISOString()
 
-    const d60 = new Date(); d60.setDate(d60.getDate() - 60)
-    const twoMonthsAgo = d60.toISOString().slice(0, 10)
+    const primerDiaMes = new Date()
+    primerDiaMes.setDate(1)
+    primerDiaMes.setHours(0, 0, 0, 0)
+    const inicioMes = primerDiaMes.toISOString().slice(0, 10)
 
     const unsubNotas = onSnapshot(
       query(collection(db, 'notas'), where('createdAt', '>=', ninetyDaysAgo)),
@@ -49,7 +51,7 @@ export default function App() {
       loaded.gastos = true; check()
     })
     const unsubSR = onSnapshot(
-      query(collection(db, 'sanramon_rows'), where('fecha', '>=', twoMonthsAgo)),
+      query(collection(db, 'sanramon_rows'), where('fecha', '>=', inicioMes)),
       snap => {
         setSrRows(snap.docs.map(d => d.data()))
         loaded.sr = true; check()
