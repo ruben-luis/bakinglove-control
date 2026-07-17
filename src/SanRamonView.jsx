@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Save, Check } from 'lucide-react'
 import { db } from './firebase'
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore'
 
 const DIAS  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -80,8 +80,11 @@ export default function SanRamonView({ onBack, onSrChange }) {
 
   // Carga inicial desde Firestore
   useEffect(() => {
+    const d60 = new Date(); d60.setDate(d60.getDate() - 60)
+    const desde = d60.toISOString().slice(0, 10)
+
     Promise.all([
-      getDocs(collection(db, 'sanramon_rows')),
+      getDocs(query(collection(db, 'sanramon_rows'), where('fecha', '>=', desde))),
       getDocs(collection(db, 'sanramon_saldos')),
     ]).then(([rowsSnap, saldosSnap]) => {
       const rows   = rowsSnap.docs.map(d => d.data())
