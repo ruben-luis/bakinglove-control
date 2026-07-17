@@ -44,10 +44,13 @@ export default function App() {
         loaded.notas = true; check()
       }
     )
-    const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => {
-      setGastos(snap.docs.map(d => d.data()))
-      loaded.gastos = true; check()
-    })
+    const unsubGastos = onSnapshot(
+      query(collection(db, 'gastos'), where('fecha', '>=', twoMonthsAgo)),
+      snap => {
+        setGastos(snap.docs.map(d => d.data()))
+        loaded.gastos = true; check()
+      }
+    )
     const unsubSR = onSnapshot(
       query(collection(db, 'sanramon_rows'), where('fecha', '>=', twoMonthsAgo)),
       snap => {

@@ -121,6 +121,27 @@ export default function SanRamonView({ onBack, onSrChange }) {
   function switchDate(newDate) {
     persist(dayRows, filterDate)
     setDirty(false)
+
+    const d60 = new Date(); d60.setDate(d60.getDate() - 60)
+    const cutoff = d60.toISOString().slice(0, 10)
+    const isOld = newDate < cutoff
+    const alreadyLoaded = allRowsRef.current.some(r => r.fecha === newDate)
+
+    if (isOld && !alreadyLoaded) {
+      setReady(false)
+      getDocs(query(collection(db, 'sanramon_rows'), where('fecha', '==', newDate)))
+        .then(snap => {
+          const fetched = snap.docs.map(d => d.data())
+          allRowsRef.current = [...allRowsRef.current, ...fetched]
+          setFilterDate(newDate)
+          setDayRows(padRows(fetched, newDate))
+          const ini = computeSaldoInicial(newDate, saldosRef.current, allRowsRef.current)
+          setSaldoIni(ini != null ? String(ini) : '0.00')
+          setReady(true)
+        })
+      return
+    }
+
     setFilterDate(newDate)
     setDayRows(padRows(allRowsRef.current.filter(r => r.fecha === newDate), newDate))
     const ini = computeSaldoInicial(newDate, saldosRef.current, allRowsRef.current)
