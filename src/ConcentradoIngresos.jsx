@@ -73,7 +73,7 @@ function getMondayISO(date) {
   return toISO(d)
 }
 
-export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], saldosSemana = [], onBack }) {
+export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], saldosSemana = [], balanceActual = null, onBack }) {
   const now  = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [filterDate, setFilterDate] = useState(todayISO)
@@ -117,33 +117,50 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     let prevBklEf=0, prevBklBancoDay=0, prevBklBancoJorge=0, prevBklEfGast=0, prevBklBancoGast=0, prevBklBancoJorgeGast=0
     let prevSrEfV=0, prevSrBancoDayV=0, prevSrBancoJorgeV=0, prevSrEfS=0, prevSrBancoDayS=0, prevSrBancoJorgeS=0
 
-    notas.forEach(n => (n.pagos||[]).forEach(p => {
-      const pf = p.fecha || n.createdAt
-      if (!beforeWk(pf)) return
-      if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
-      const m = parseFloat(p.monto) || 0
-      if (p.metodoPago === 'Efectivo')    prevBklEf         += m
-      if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay += m
-      if (p.metodoPago === 'Banco JORGE') prevBklBancoJorge += m
-    }))
-    gastos.forEach(g => {
-      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
-      if (!beforeWk(f)) return
-      const m = parseFloat(g.monto) || 0
-      if (g.formaPago === 'Efectivo')                                                                    prevBklEfGast         += m
-      if (g.formaPago === 'Banco Day' || g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') prevBklBancoGast      += m
-      if (g.formaPago === 'Banco JORGE')                                                               prevBklBancoJorgeGast += m
-    })
-    srRows.forEach(r => {
-      if (!r.fecha || !beforeWk(r.fecha)) return
-      const m = parseFloat(r.precio) || 0
-      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                            prevSrEfV         += m
-      if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayV += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                                               prevSrBancoJorgeV += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                                               prevSrEfS         += m
-      if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayS += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                           prevSrBancoJorgeS += m
-    })
+    if (balanceActual && balanceActual.weekStart === toISO(wStart)) {
+      // Semana actual: usar balance pre-computado (preciso y sin leer historial)
+      prevBklEf             = balanceActual.prevBklEf
+      prevBklBancoDay       = balanceActual.prevBklBancoDay
+      prevBklBancoJorge     = balanceActual.prevBklBancoJorge
+      prevBklEfGast         = balanceActual.prevBklEfGast
+      prevBklBancoGast      = balanceActual.prevBklBancoGast
+      prevBklBancoJorgeGast = balanceActual.prevBklBancoJorgeGast
+      prevSrEfV             = balanceActual.prevSrEfV
+      prevSrBancoDayV       = balanceActual.prevSrBancoDayV
+      prevSrBancoJorgeV     = balanceActual.prevSrBancoJorgeV
+      prevSrEfS             = balanceActual.prevSrEfS
+      prevSrBancoDayS       = balanceActual.prevSrBancoDayS
+      prevSrBancoJorgeS     = balanceActual.prevSrBancoJorgeS
+    } else {
+      // Semana anterior: usar datos en memoria (limitado a ventana disponible)
+      notas.forEach(n => (n.pagos||[]).forEach(p => {
+        const pf = p.fecha || n.createdAt
+        if (!beforeWk(pf)) return
+        if (p.sucursal === 'SR') return
+        const m = parseFloat(p.monto) || 0
+        if (p.metodoPago === 'Efectivo')    prevBklEf         += m
+        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay += m
+        if (p.metodoPago === 'Banco JORGE') prevBklBancoJorge += m
+      }))
+      gastos.forEach(g => {
+        const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
+        if (!beforeWk(f)) return
+        const m = parseFloat(g.monto) || 0
+        if (g.formaPago === 'Efectivo')                                                                    prevBklEfGast         += m
+        if (g.formaPago === 'Banco Day' || g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') prevBklBancoGast      += m
+        if (g.formaPago === 'Banco JORGE')                                                               prevBklBancoJorgeGast += m
+      })
+      srRows.forEach(r => {
+        if (!r.fecha || !beforeWk(r.fecha)) return
+        const m = parseFloat(r.precio) || 0
+        if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                            prevSrEfV         += m
+        if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayV += m
+        if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                                               prevSrBancoJorgeV += m
+        if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                                               prevSrEfS         += m
+        if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayS += m
+        if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                           prevSrBancoJorgeS += m
+      })
+    }
 
     const saldoEfBkl  = (seed.efectivoBkl||0) + prevBklEf         - prevBklEfGast
     const saldoEfSr   = (seed.efectivoSr||0)  + prevSrEfV         - prevSrEfS
@@ -198,7 +215,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       saldoInicialBancosJorge: saldoBkJorge,
       acum, gastoAcum,
     }
-  }, [notas, gastos, srRows, saldosSemana, refDate])
+  }, [notas, gastos, srRows, saldosSemana, refDate, balanceActual])
 
   // Totales derivados
   const ingBancosDay    = acum.Terminal + acum.Transferencia

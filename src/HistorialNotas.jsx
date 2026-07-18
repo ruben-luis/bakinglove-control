@@ -375,9 +375,9 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
   const [fetchedDays, setFetchedDays] = useState({})
   const fetchingRef = useRef(new Set())
 
-  // Fecha de corte: coincide con el filtro de notas en App.jsx (90 días)
+  // Fecha de corte: coincide con el filtro de notas en App.jsx (14 días)
   const cutoffISO = useMemo(() => {
-    const d = new Date(); d.setDate(d.getDate() - 90)
+    const d = new Date(); d.setDate(d.getDate() - 14)
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   }, [])
 

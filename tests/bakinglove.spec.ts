@@ -110,6 +110,12 @@ test('Concentrado Ingresos: tiene columnas Terminal, Transferencia, Efectivo, Ba
 
   await openModule(page, 'Concentrado de Ingresos')
 
+  // El módulo requiere PIN
+  await expect(page.getByText('Ingresa tu NIP')).toBeVisible({ timeout: 5000 })
+  await enterPin(page, '1234')
+  await expect(page.getByText('Ingresa tu NIP')).toBeHidden({ timeout: 5000 })
+  await page.waitForTimeout(1000)
+
   // Debe mostrar los 4 métodos de pago como columnas
   await expect(page.getByText('Terminal').first()).toBeVisible({ timeout: 8000 })
   await expect(page.getByText('Transferencia').first()).toBeVisible({ timeout: 5000 })
@@ -122,6 +128,12 @@ test('Concentrado Gastos: tiene columnas Terminal, Transferencia, Banco JORGE, E
   await waitForApp(page)
 
   await openModule(page, 'Concentrado de Gastos')
+
+  // El módulo requiere PIN
+  await expect(page.getByText('Ingresa tu NIP')).toBeVisible({ timeout: 5000 })
+  await enterPin(page, '1234')
+  await expect(page.getByText('Ingresa tu NIP')).toBeHidden({ timeout: 5000 })
+  await page.waitForTimeout(1000)
 
   await expect(page.getByText('Terminal').first()).toBeVisible({ timeout: 8000 })
   await expect(page.getByText('Transferencia').first()).toBeVisible({ timeout: 5000 })

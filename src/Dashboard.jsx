@@ -209,7 +209,7 @@ function SectionLabel({ children, color = 'rgba(255,255,255,.35)' }) {
   )
 }
 
-function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = false, onUnlockClick }) {
+function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], balanceActual = null, unlocked = false, onUnlockClick }) {
   const [rainKey, setRainKey] = useState(0)
 
   const {
@@ -226,52 +226,25 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       !earliest || s.id < earliest.id ? s : earliest
     ), null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
 
-    const beforeThisWeek = f => {
-      if (!f) return false
-      const d = new Date(f.length === 10 ? f + 'T12:00:00' : f)
-      return d < mon
-    }
     const inThisWeek = f => {
       if (!f) return false
       const d = new Date(f.length === 10 ? f + 'T12:00:00' : f)
       return d >= mon && d <= sun
     }
 
-    // ── Acumulado ANTES de esta semana (recalculado en tiempo real) ──
-    let prevBklEf = 0, prevBklBancoDay = 0, prevBklBancoJorge = 0, prevBklEfGast = 0, prevBklBancoGast = 0, prevBklBancoJorgeGast = 0
-    let prevSrEfV = 0, prevSrBancoDayV = 0, prevSrBancoJorgeV = 0, prevSrEfS = 0, prevSrBancoDayS = 0, prevSrBancoJorgeS = 0
-
-    notas.forEach(n =>
-      (n.pagos || []).forEach(p => {
-        const pf = p.fecha || n.createdAt
-        if (!beforeThisWeek(pf)) return
-        if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
-        const m = parseFloat(p.monto) || 0
-        if (p.metodoPago === 'Efectivo')                                                                    prevBklEf         += m
-        if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay  += m
-        if (p.metodoPago === 'Banco JORGE')                                                                  prevBklBancoJorge += m
-      })
-    )
-
-    gastos.forEach(g => {
-      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
-      if (!beforeThisWeek(f)) return
-      const m = parseFloat(g.monto) || 0
-      if (g.formaPago === 'Efectivo')                                                                    prevBklEfGast         += m
-      if (g.formaPago === 'Banco Day' || g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') prevBklBancoGast      += m
-      if (g.formaPago === 'Banco JORGE')                                                               prevBklBancoJorgeGast += m
-    })
-
-    srRows.forEach(r => {
-      if (!r.fecha || !beforeThisWeek(r.fecha)) return
-      const m = parseFloat(r.precio) || 0
-      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                       prevSrEfV         += m
-      if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayV += m
-      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                          prevSrBancoJorgeV += m
-      if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                              prevSrEfS         += m
-      if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayS += m
-      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                   prevSrBancoJorgeS += m
-    })
+    // ── Acumulado ANTES de esta semana (desde balance pre-computado) ──
+    const prevBklEf             = balanceActual?.prevBklEf             ?? 0
+    const prevBklBancoDay       = balanceActual?.prevBklBancoDay       ?? 0
+    const prevBklBancoJorge     = balanceActual?.prevBklBancoJorge     ?? 0
+    const prevBklEfGast         = balanceActual?.prevBklEfGast         ?? 0
+    const prevBklBancoGast      = balanceActual?.prevBklBancoGast      ?? 0
+    const prevBklBancoJorgeGast = balanceActual?.prevBklBancoJorgeGast ?? 0
+    const prevSrEfV             = balanceActual?.prevSrEfV             ?? 0
+    const prevSrBancoDayV       = balanceActual?.prevSrBancoDayV       ?? 0
+    const prevSrBancoJorgeV     = balanceActual?.prevSrBancoJorgeV     ?? 0
+    const prevSrEfS             = balanceActual?.prevSrEfS             ?? 0
+    const prevSrBancoDayS       = balanceActual?.prevSrBancoDayS       ?? 0
+    const prevSrBancoJorgeS     = balanceActual?.prevSrBancoJorgeS     ?? 0
 
     const saldoInicioEfBkl = (seed.efectivoBkl || 0) + prevBklEf  - prevBklEfGast
     const saldoInicioEfSr  = (seed.efectivoSr  || 0) + prevSrEfV  - prevSrEfS
@@ -330,7 +303,7 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], unlocked = f
       srVentas:    srCashVentas + srBankVentasDay + srBankVentasJorge,
       srSalidas:   srCashSalidas + srBankSalidasDay + srBankSalidasJorge,
     }
-  }, [notas, gastos, srRows, saldosSemana])
+  }, [notas, gastos, srRows, saldosSemana, balanceActual])
 
   const bklEfectivo    = saldoInicioEfBkl + bklCashIng   - bklCashGast
   const srEfectivo     = saldoInicioEfSr  + srCashVentas - srCashSalidas
@@ -555,7 +528,7 @@ const buildModules = (onNavigate) => [
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 
-export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], saldosSemana = [], onSrChange, onChangePinRequest }) {
+export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], saldosSemana = [], balanceActual = null, onSrChange, onChangePinRequest }) {
   const modules = buildModules(onNavigate)
   const [corteUnlocked, setCorteUnlocked] = useState(false)
   const [showCortePin,  setShowCortePin]  = useState(false)
@@ -575,6 +548,7 @@ export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = 
           gastos={gastos}
           srRows={srRows}
           saldosSemana={saldosSemana}
+          balanceActual={balanceActual}
           unlocked={corteUnlocked}
           onUnlockClick={() => setShowCortePin(true)}
         />
