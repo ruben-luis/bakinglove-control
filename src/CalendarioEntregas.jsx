@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, X, Clock, CreditCard, Banknote, Smartphone, Pencil } from 'lucide-react'
+import { db } from './firebase'
+import { getDocs, collection, query, where } from 'firebase/firestore'
 
 const NAVY      = '#1f2b5e'
 const PINK_HI   = '#fbe0ea'
@@ -187,19 +189,36 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota }) {
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [sel,   setSel]   = useState(null)
+  const [extraNotas, setExtraNotas] = useState([])
 
   const TODAY = todayKey()
 
+  // Carga notas con fechaEntrega reciente/futura que ya no están en el prop (>14 días)
+  useEffect(() => {
+    const d60 = new Date()
+    d60.setDate(d60.getDate() - 60)
+    const cutoff = `${d60.getFullYear()}-${String(d60.getMonth()+1).padStart(2,'0')}-${String(d60.getDate()).padStart(2,'0')}`
+    getDocs(query(collection(db, 'notas'), where('fechaEntrega', '>=', cutoff)))
+      .then(snap => setExtraNotas(snap.docs.map(d => d.data())))
+  }, [])
+
+  // Merge: prop (tiempo real) tiene prioridad; extra llena los huecos de notas viejas
+  const allNotas = useMemo(() => {
+    const byId = new Map(notas.map(n => [n.id, n]))
+    extraNotas.forEach(n => { if (!byId.has(n.id)) byId.set(n.id, n) })
+    return [...byId.values()]
+  }, [notas, extraNotas])
+
   const deliveryMap = useMemo(() => {
     const map = {}
-    notas.forEach(n => {
+    allNotas.forEach(n => {
       if (!n.fechaEntrega) return
       const key = n.fechaEntrega.slice(0, 10)
       if (!map[key]) map[key] = []
       map[key].push(n)
     })
     return map
-  }, [notas])
+  }, [allNotas])
 
   const grid = useMemo(() => {
     const firstDay = new Date(year, month, 1)
