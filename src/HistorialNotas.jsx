@@ -1,8 +1,6 @@
-import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { ArrowLeft, FileDown, ChevronDown, X, Plus, Save, Trash2 } from 'lucide-react'
 import { printNota } from './printNota'
-import { db } from './firebase'
-import { collection, getDocs, query, where } from 'firebase/firestore'
 
 const LINK      = '#1a51c4'
 const HEAD_INK  = '#111018'
@@ -370,39 +368,8 @@ function EditModal({ nota, onClose, onSave, onDelete }) {
 
 // ═══════════════════════════════════════════════════════════════
 export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete }) {
-  const [editando,    setEditando]   = useState(null)
-  const [filterDate,  setFilterDate] = useState(todayISO)
-  const [fetchedDays, setFetchedDays] = useState({})
-  const fetchingRef = useRef(new Set())
-
-  // Fecha de corte: coincide con el filtro de notas en App.jsx (14 días)
-  const cutoffISO = useMemo(() => {
-    const d = new Date(); d.setDate(d.getDate() - 14)
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-  }, [])
-
-  // Lazy load: si la fecha está fuera de la ventana cargada, la pide a Firestore
-  useEffect(() => {
-    if (filterDate >= cutoffISO) return
-    if (fetchingRef.current.has(filterDate)) return
-    fetchingRef.current.add(filterDate)
-
-    setFetchedDays(prev => ({ ...prev, [filterDate]: 'loading' }))
-
-    // Rango de 2 días UTC para cubrir zona horaria (México UTC-6)
-    const rangeStart = filterDate + 'T00:00:00.000Z'
-    const d = new Date(filterDate + 'T12:00:00'); d.setDate(d.getDate() + 2)
-    const rangeEnd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` + 'T00:00:00.000Z'
-
-    getDocs(query(
-      collection(db, 'notas'),
-      where('createdAt', '>=', rangeStart),
-      where('createdAt', '<',  rangeEnd)
-    )).then(snap => {
-      const fetched = snap.docs.map(d => d.data()).filter(n => creacionDay(n) === filterDate)
-      setFetchedDays(prev => ({ ...prev, [filterDate]: fetched }))
-    })
-  }, [filterDate, cutoffISO])
+  const [editando,   setEditando]  = useState(null)
+  const [filterDate, setFilterDate] = useState(todayISO)
 
   const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   const prevDay = () => {
@@ -423,20 +390,15 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
     return `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]} ${d.getFullYear()}`
   }
 
-  const isLoadingDay = fetchedDays[filterDate] === 'loading'
-
-  const filteredNotas = useMemo(() => {
-    const source = filterDate >= cutoffISO
-      ? notas
-      : (Array.isArray(fetchedDays[filterDate]) ? fetchedDays[filterDate] : [])
-    return source
+  const filteredNotas = useMemo(() =>
+    notas
       .filter(n => creacionDay(n) === filterDate)
       .sort((a, b) => {
         const aNum = parseInt(a.folio?.replace('#', '') || '0')
         const bNum = parseInt(b.folio?.replace('#', '') || '0')
         return bNum - aNum
       })
-  }, [filterDate, notas, fetchedDays, cutoffISO])
+  , [filterDate, notas])
 
   const groups = []
   const seen = new Map()
@@ -577,7 +539,7 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
                 {filteredNotas.length === 0 && (
                   <tr>
                     <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#aaa', fontWeight: 700, fontSize: 14, border: `1px solid ${LINE_SOFT}` }}>
-                      {isLoadingDay ? 'Cargando notas…' : isToday ? 'Sin notas hoy' : 'Sin notas para este día'}
+                      {isToday ? 'Sin notas hoy' : 'Sin notas para este día'}
                     </td>
                   </tr>
                 )}
@@ -594,7 +556,7 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
           <div className="hist-card-view" style={{ display: 'none' }}>
             {filteredNotas.length === 0 && (
               <div style={{ textAlign: 'center', padding: '48px 20px', color: '#aaa', fontWeight: 700, fontSize: 14 }}>
-                {isLoadingDay ? 'Cargando notas…' : isToday ? 'Sin notas hoy' : 'Sin notas para este día'}
+                {isToday ? 'Sin notas hoy' : 'Sin notas para este día'}
               </div>
             )}
             {groups.map(({ day, notas: grupoNotas }) => (

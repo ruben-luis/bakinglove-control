@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import './index.css'
 import { db } from './firebase'
 import {
-  collection, onSnapshot, query, where,
-  doc, setDoc, deleteDoc, getDoc, getDocs, runTransaction,
+  collection, onSnapshot,
+  doc, setDoc, deleteDoc, getDoc, runTransaction,
 } from 'firebase/firestore'
 import {
   getCurrentMonday, rolloverBalance, computeBalanceFull,
@@ -36,28 +36,22 @@ export default function App() {
       if (loaded.notas && loaded.gastos && loaded.sr) setLoading(false)
     }
 
-    const d14 = new Date(); d14.setDate(d14.getDate() - 14)
-    const fourteenDaysAgo = d14.toISOString()
-
-    const d60 = new Date(); d60.setDate(d60.getDate() - 60)
-    const twoMonthsAgo = d60.toISOString().slice(0, 10)
-
     const unsubNotas = onSnapshot(
-      query(collection(db, 'notas'), where('createdAt', '>=', fourteenDaysAgo)),
+      collection(db, 'notas'),
       snap => {
         setNotas(snap.docs.map(d => d.data()))
         loaded.notas = true; check()
       }
     )
     const unsubGastos = onSnapshot(
-      query(collection(db, 'gastos'), where('fecha', '>=', twoMonthsAgo)),
+      collection(db, 'gastos'),
       snap => {
         setGastos(snap.docs.map(d => d.data()))
         loaded.gastos = true; check()
       }
     )
     const unsubSR = onSnapshot(
-      query(collection(db, 'sanramon_rows'), where('fecha', '>=', twoMonthsAgo)),
+      collection(db, 'sanramon_rows'),
       snap => {
         setSrRows(snap.docs.map(d => d.data()))
         loaded.sr = true; check()
@@ -84,29 +78,14 @@ export default function App() {
           setBalanceActual(saved)
           return
         }
-        const daysDiff = Math.floor(
-          (new Date(weekStart + 'T12:00:00') - new Date(saved.weekStart + 'T12:00:00'))
-          / (1000 * 60 * 60 * 24)
-        )
-        if (daysDiff > 0 && daysDiff <= 14) {
-          const rolled = rolloverBalance(saved, notas, gastos, srRows, weekStart)
-          setBalanceActual(rolled)
-          await setDoc(balRef, rolled)
-          return
-        }
+        // Rollover usando datos en memoria (ahora completos — sin filtro de fecha)
+        const rolled = rolloverBalance(saved, notas, gastos, srRows, weekStart)
+        setBalanceActual(rolled)
+        await setDoc(balRef, rolled)
+        return
       }
-      // Sin documento o demasiado antiguo → lectura completa (única vez)
-      const [notasSnap, gastosSnap, srSnap] = await Promise.all([
-        getDocs(collection(db, 'notas')),
-        getDocs(collection(db, 'gastos')),
-        getDocs(collection(db, 'sanramon_rows')),
-      ])
-      const computed = computeBalanceFull(
-        notasSnap.docs.map(d => d.data()),
-        gastosSnap.docs.map(d => d.data()),
-        srSnap.docs.map(d => d.data()),
-        weekStart,
-      )
+      // Sin documento guardado → calcular desde cero con datos en memoria
+      const computed = computeBalanceFull(notas, gastos, srRows, weekStart)
       setBalanceActual(computed)
       await setDoc(balRef, computed)
     }
