@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, X, Clock, CreditCard, Banknote, Smartphone, Pencil } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Clock, CreditCard, Banknote, Smartphone, Pencil, Trash2 } from 'lucide-react'
 
 const NAVY      = '#1f2b5e'
 const PINK_HI   = '#fbe0ea'
 const PINK_TEXT = '#d9748f'
 const MINT_BG   = '#d9efd2'
 const MINT_TEXT = '#5d8a49'
+const RED_BG    = '#fbe0ea'
+const RED_TEXT  = '#c23a63'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DIAS  = ['L','M','M','J','V','S','D']
@@ -46,7 +48,8 @@ function MethodBadge({ method }) {
   )
 }
 
-function NotaCard({ nota, onEdit }) {
+function NotaCard({ nota, onEdit, onDelete }) {
+  const [confirmDel, setConfirmDel] = useState(false)
   const total   = Number(nota.totalPedido || 0)
   const pagado  = nota.totalPagado !== undefined
     ? Number(nota.totalPagado)
@@ -169,20 +172,52 @@ function NotaCard({ nota, onEdit }) {
         </div>
       )}
 
-      {/* ── Botón editar ── */}
-      {onEdit && (
-        <button
-          onClick={() => onEdit(nota)}
-          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, border:`1.5px solid ${NAVY}`, background:'#fff', color:NAVY, fontSize:12, fontWeight:700, cursor:'pointer' }}
-        >
-          <Pencil size={13} strokeWidth={2.5} /> Editar nota
-        </button>
+      {/* ── Botones editar / eliminar ── */}
+      {confirmDel ? (
+        <div style={{ background:RED_BG, border:`1.5px solid ${RED_TEXT}`, borderRadius:10, padding:'10px 12px' }}>
+          <div style={{ fontWeight:700, fontSize:12, color:RED_TEXT, marginBottom:8, textAlign:'center' }}>
+            ¿Seguro? Esta acción no se puede deshacer.
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button
+              onClick={() => setConfirmDel(false)}
+              style={{ flex:1, padding:'8px', borderRadius:8, border:'1px solid #bfbfc6', background:'#fff', color:'#555', fontSize:12, fontWeight:700, cursor:'pointer' }}
+            >
+              No, volver
+            </button>
+            <button
+              onClick={() => { onDelete(nota.id); setConfirmDel(false) }}
+              style={{ flex:1, padding:'8px', borderRadius:8, border:'none', background:RED_TEXT, color:'#fff', fontSize:12, fontWeight:800, cursor:'pointer' }}
+            >
+              Sí, eliminar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns: onDelete ? '1fr 1fr' : '1fr', gap:8 }}>
+          {onEdit && (
+            <button
+              onClick={() => onEdit(nota)}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, border:`1.5px solid ${NAVY}`, background:'#fff', color:NAVY, fontSize:12, fontWeight:700, cursor:'pointer' }}
+            >
+              <Pencil size={13} strokeWidth={2.5} /> Editar nota
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => setConfirmDel(true)}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, border:`1.5px solid ${RED_TEXT}`, background:'#fff', color:RED_TEXT, fontSize:12, fontWeight:700, cursor:'pointer' }}
+            >
+              <Trash2 size={13} strokeWidth={2.5} /> Eliminar nota
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-export default function CalendarioEntregas({ notas = [], onBack, onEditNota }) {
+export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onDeleteNota }) {
   const today  = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -422,7 +457,7 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota }) {
                   Sin entregas para este día
                 </div>
               ) : (
-                selNotas.map((n, i) => <NotaCard key={n.id || i} nota={n} onEdit={onEditNota} />)
+                selNotas.map((n, i) => <NotaCard key={n.id || i} nota={n} onEdit={onEditNota} onDelete={onDeleteNota} />)
               )}
             </motion.div>
           </>
