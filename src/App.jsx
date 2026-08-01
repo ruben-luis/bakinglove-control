@@ -164,9 +164,6 @@ export default function App() {
       setDoc(doc(db, 'config', 'balance_actual'), newBal)
     }
     await deleteDoc(doc(db, 'notas', notaId))
-    const remaining = notas.filter(n => n.id !== notaId)
-    const maxFolio  = remaining.reduce((max, n) => Math.max(max, parseInt(n.folio?.replace('#', '') || '0')), 0)
-    await setDoc(doc(db, 'config', 'folio_counter'), { current: maxFolio })
   }
 
   // ── CRUD gastos ───────────────────────────────────────────────
@@ -239,7 +236,7 @@ export default function App() {
   } else if (view === 'calendario') {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} />
   } else if (view === 'sanramon') {
-    content = <SanRamonView onBack={() => setView('dashboard')} onSrChange={setSrRows} />
+    content = <SanRamonView onBack={() => setView('dashboard')} srRows={srRows} />
   } else {
     content = (
       <Dashboard
@@ -249,7 +246,6 @@ export default function App() {
         srRows={srRows}
         saldosSemana={saldosSemana}
         balanceActual={balanceActual}
-        onSrChange={setSrRows}
         onChangePinRequest={() => setPinAction('change-verify')}
       />
     )

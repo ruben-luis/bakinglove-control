@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Save, Check } from 'lucide-react'
 import { db } from './firebase'
-import { collection, getDocs, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore'
 
 const DIAS  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -68,7 +68,7 @@ const CHECK = (
   </svg>
 )
 
-export default function SanRamonView({ onBack, onSrChange }) {
+export default function SanRamonView({ onBack, srRows = [] }) {
   const allRowsRef = useRef([])
   const saldosRef  = useRef({})
 
@@ -80,25 +80,18 @@ export default function SanRamonView({ onBack, onSrChange }) {
 
   // Carga inicial desde Firestore
   useEffect(() => {
-    const d60 = new Date(); d60.setDate(d60.getDate() - 60)
-    const desde = d60.toISOString().slice(0, 10)
-
-    Promise.all([
-      getDocs(query(collection(db, 'sanramon_rows'), where('fecha', '>=', desde))),
-      getDocs(collection(db, 'sanramon_saldos')),
-    ]).then(([rowsSnap, saldosSnap]) => {
-      const rows   = rowsSnap.docs.map(d => d.data())
+    getDocs(collection(db, 'sanramon_saldos')).then(saldosSnap => {
       const saldos = {}
       saldosSnap.docs.forEach(d => { saldos[d.id] = d.data().saldo })
-      allRowsRef.current = rows
+      allRowsRef.current = [...srRows]
       saldosRef.current  = saldos
       const today = todayISO()
-      setDayRows(padRows(rows.filter(r => r.fecha === today), today))
-      const ini = computeSaldoInicial(today, saldos, rows)
+      setDayRows(padRows(srRows.filter(r => r.fecha === today), today))
+      const ini = computeSaldoInicial(today, saldos, srRows)
       setSaldoIni(ini != null ? String(ini) : '0.00')
       setReady(true)
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function persist(rows, fecha) {
     const sanitize = r => {
@@ -115,33 +108,11 @@ export default function SanRamonView({ onBack, onSrChange }) {
     toDelete.forEach(r => deleteDoc(doc(db, 'sanramon_rows', r.id)))
     filled.forEach(r => setDoc(doc(db, 'sanramon_rows', r.id), r))
 
-    onSrChange?.(newAll)
   }
 
   function switchDate(newDate) {
     persist(dayRows, filterDate)
     setDirty(false)
-
-    const d60 = new Date(); d60.setDate(d60.getDate() - 60)
-    const cutoff = d60.toISOString().slice(0, 10)
-    const isOld = newDate < cutoff
-    const alreadyLoaded = allRowsRef.current.some(r => r.fecha === newDate)
-
-    if (isOld && !alreadyLoaded) {
-      setReady(false)
-      getDocs(query(collection(db, 'sanramon_rows'), where('fecha', '==', newDate)))
-        .then(snap => {
-          const fetched = snap.docs.map(d => d.data())
-          allRowsRef.current = [...allRowsRef.current, ...fetched]
-          setFilterDate(newDate)
-          setDayRows(padRows(fetched, newDate))
-          const ini = computeSaldoInicial(newDate, saldosRef.current, allRowsRef.current)
-          setSaldoIni(ini != null ? String(ini) : '0.00')
-          setReady(true)
-        })
-      return
-    }
-
     setFilterDate(newDate)
     setDayRows(padRows(allRowsRef.current.filter(r => r.fecha === newDate), newDate))
     const ini = computeSaldoInicial(newDate, saldosRef.current, allRowsRef.current)

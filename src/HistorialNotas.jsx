@@ -140,7 +140,7 @@ function EditModal({ nota, onClose, onSave, onDelete }) {
   )
   const [pagos, setPagos] = useState(
     nota.pagos?.filter(p => p.monto).length
-      ? nota.pagos.map(p => ({ monto: p.monto || '', fecha: p.fecha || todayISO(), met: p.metodoPago || null }))
+      ? nota.pagos.map(p => ({ monto: p.monto || '', fecha: p.fecha || todayISO(), met: p.metodoPago || null, sucursal: p.sucursal || null }))
       : [emptyG()]
   )
   const [confirmDel, setConfirmDel] = useState(false)
@@ -166,7 +166,7 @@ function EditModal({ nota, onClose, onSave, onDelete }) {
       contacto:      tel,
       productos:     prods.map(p => ({ ...p, total: (parseFloat(p.cantidad)||0)*(parseFloat(p.precioU)||0) })),
       observaciones: obs.filter(o => o.trim()),
-      pagos:         pagos.map(p => ({ monto: p.monto, fecha: p.fecha, metodoPago: p.met })),
+      pagos:         pagos.map(p => ({ monto: p.monto, fecha: p.fecha, metodoPago: p.met, sucursal: p.sucursal || null })),
       totalProductos: totalProds,
       totalPedido:   totalGeneral,
       totalPagado,

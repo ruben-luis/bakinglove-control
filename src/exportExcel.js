@@ -187,7 +187,7 @@ export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana
     weekMap.get(key).gastBKL += num(g.monto)
   })
 
-  srRows.filter(r => r.precio && r.fecha).forEach(r => {
+  srRows.filter(r => r.precio && r.fecha && !r.fromNota).forEach(r => {
     const { key } = getWeekBounds(r.fecha + 'T12:00:00')
     if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
     if (r.tipo === 'venta')  weekMap.get(key).ingSR    += num(r.precio)

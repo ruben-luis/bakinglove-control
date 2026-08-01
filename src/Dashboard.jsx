@@ -528,7 +528,7 @@ const buildModules = (onNavigate) => [
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 
-export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], saldosSemana = [], balanceActual = null, onSrChange, onChangePinRequest }) {
+export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], saldosSemana = [], balanceActual = null, onChangePinRequest }) {
   const modules = buildModules(onNavigate)
   const [corteUnlocked, setCorteUnlocked] = useState(false)
   const [showCortePin,  setShowCortePin]  = useState(false)
