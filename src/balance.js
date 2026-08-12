@@ -106,6 +106,11 @@ export function computeBalanceFull(notas, gastos, srRows, weekStart) {
 }
 
 export function rolloverBalance(balance, notas, gastos, srRows, newWeekStart) {
+  // Nunca retrocedas: si newWeekStart no es posterior a la semana ya
+  // guardada, no hay nada que avanzar (evita corromper weekStart si
+  // un dispositivo calcula mal la semana actual).
+  if (newWeekStart <= balance.weekStart) return balance
+
   const acc = { ...balance }
   const from = balance.weekStart
   const to   = newWeekStart
@@ -118,13 +123,21 @@ export function rolloverBalance(balance, notas, gastos, srRows, newWeekStart) {
   return acc
 }
 
-export function applyNotaEditDiff(balance, oldNota, newNota) {
-  const acc = { ...balance }
-  const weekStart = balance.weekStart
+// ── Deltas (para incrementos atómicos en Firestore) ────────────────
+// A diferencia de applyXDiff (que regresaban el balance completo ya
+// modificado), estas funciones regresan SOLO lo que cambió. Así, el
+// que llama puede mandar ese delta como FieldValue.increment(...) sin
+// necesitar leer el documento primero — y sin importar qué tan
+// desactualizado esté su propio balanceActual en memoria, el cambio
+// que aplica siempre es correcto (nunca sobreescribe lo que otro
+// dispositivo ya sumó).
 
-  // BKL payments (non-SR)
+export function notaBalanceDelta(oldNota, newNota, weekStart) {
+  const acc = empty()
+
+  // Pagos BKL (no SR)
   const applyBkl = (nota, sign) =>
-    (nota.pagos || []).forEach(p => {
+    (nota?.pagos || []).forEach(p => {
       if (p.sucursal === 'SR') return
       const pf = p.fecha || nota.createdAt
       if (!before(pf, weekStart)) return
@@ -136,9 +149,9 @@ export function applyNotaEditDiff(balance, oldNota, newNota) {
   applyBkl(oldNota, -1)
   applyBkl(newNota, +1)
 
-  // SR payments (synced to sanramon_rows as tipo='venta')
+  // Pagos SR (se reflejan en sanramon_rows como tipo='venta', fromNota:true)
   const applySr = (nota, sign) =>
-    (nota.pagos || []).forEach(p => {
+    (nota?.pagos || []).forEach(p => {
       if (p.sucursal !== 'SR') return
       const pf = p.fecha || nota.createdAt
       if (!before(pf, weekStart)) return
@@ -153,9 +166,8 @@ export function applyNotaEditDiff(balance, oldNota, newNota) {
   return acc
 }
 
-export function applyGastosEditDiff(balance, oldGastos, newGastos) {
-  const acc = { ...balance }
-  const weekStart = balance.weekStart
+export function gastosBalanceDelta(oldGastos, newGastos, weekStart) {
+  const acc = empty()
   const apply = (g, sign) => {
     const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
     if (!before(f, weekStart)) return
@@ -166,5 +178,43 @@ export function applyGastosEditDiff(balance, oldGastos, newGastos) {
   }
   oldGastos.forEach(g => apply(g, -1))
   newGastos.forEach(g => apply(g, +1))
+  return acc
+}
+
+// Fila de San Ramón (venta/salida capturada directo, no vía nota)
+export function srRowBalanceDelta(oldRow, newRow, weekStart) {
+  const acc = empty()
+  const apply = (r, sign) => {
+    if (!r || r.fromNota) return // ya se cuenta vía notaBalanceDelta
+    if (!r.fecha || !before(r.fecha, weekStart)) return
+    const m = (parseFloat(r.precio) || 0) * sign
+    if (r.tipo === 'venta') {
+      if      (r.metodo === 'Efectivo')    acc.prevSrEfV         += m
+      else if (r.metodo === 'Banco JORGE') acc.prevSrBancoJorgeV += m
+      else                                 acc.prevSrBancoDayV    += m
+    } else if (r.tipo === 'salida') {
+      if      (r.metodo === 'Efectivo')    acc.prevSrEfS         += m
+      else if (r.metodo === 'Banco JORGE') acc.prevSrBancoJorgeS += m
+      else                                 acc.prevSrBancoDayS    += m
+    }
+  }
+  apply(oldRow, -1)
+  apply(newRow, +1)
+  return acc
+}
+
+export function mergeDeltas(...deltas) {
+  const acc = empty()
+  deltas.forEach(d => { for (const k in acc) acc[k] += (d[k] || 0) })
+  return acc
+}
+
+export function isZeroDelta(delta) {
+  return Object.values(delta).every(v => Math.abs(v) < 0.005)
+}
+
+export function addDelta(balance, delta) {
+  const acc = { ...balance }
+  for (const k in delta) acc[k] = (acc[k] || 0) + delta[k]
   return acc
 }

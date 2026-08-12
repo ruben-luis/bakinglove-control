@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react'
 import './index.css'
 import { db } from './firebase'
 import {
-  collection, onSnapshot,
-  doc, setDoc, deleteDoc, getDoc, runTransaction,
+  collection, onSnapshot, query, where, getDocs,
+  doc, setDoc, updateDoc, deleteDoc, getDoc, runTransaction,
 } from 'firebase/firestore'
 import {
   getCurrentMonday, rolloverBalance, computeBalanceFull,
-  applyNotaEditDiff, applyGastosEditDiff,
+  notaBalanceDelta, gastosBalanceDelta, isZeroDelta, addDelta,
 } from './balance'
+import { toIncrements } from './balanceSync'
 import Dashboard from './Dashboard'
 import NotaDeVenta from './NotaDeVenta'
 import HistorialNotas from './HistorialNotas'
@@ -64,40 +65,54 @@ export default function App() {
     return () => { unsubNotas(); unsubGastos(); unsubSR(); unsubSaldos() }
   }, [])
 
-  // ── Balance pre-computado (se inicializa una vez al cargar) ──
+  // ── Balance pre-computado: sincronizado en tiempo real ────────
+  // (antes se leía una sola vez con getDoc; así, si otro dispositivo
+  // actualiza el balance, este se entera sin necesidad de recargar)
+  useEffect(() => {
+    const balRef = doc(db, 'config', 'balance_actual')
+    return onSnapshot(balRef, snap => {
+      if (snap.exists()) setBalanceActual(snap.data())
+    })
+  }, [])
+
+  // ── Avance de semana (rollover), protegido con transacción ───
+  // Se dispara una vez por carga de app. runTransaction garantiza que
+  // si dos dispositivos lo disparan casi al mismo tiempo, solo uno
+  // hace el avance real — Firestore reintenta al otro con los datos
+  // frescos, ve que ya quedó al día y no hace nada. Así nunca se
+  // puede sumar la misma semana dos veces, ni retroceder weekStart.
   useEffect(() => {
     if (loading) return
     const weekStart = getCurrentMonday()
     const balRef = doc(db, 'config', 'balance_actual')
 
-    const init = async () => {
-      const snap = await getDoc(balRef)
-      if (snap.exists()) {
-        const saved = snap.data()
-        if (saved.weekStart === weekStart) {
-          setBalanceActual(saved)
-          return
-        }
-        // Rollover usando datos en memoria (ahora completos — sin filtro de fecha)
-        const rolled = rolloverBalance(saved, notas, gastos, srRows, weekStart)
-        setBalanceActual(rolled)
-        await setDoc(balRef, rolled)
+    runTransaction(db, async (tx) => {
+      const snap = await tx.get(balRef)
+      if (!snap.exists()) {
+        tx.set(balRef, computeBalanceFull(notas, gastos, srRows, weekStart))
         return
       }
-      // Sin documento guardado → calcular desde cero con datos en memoria
-      const computed = computeBalanceFull(notas, gastos, srRows, weekStart)
-      setBalanceActual(computed)
-      await setDoc(balRef, computed)
-    }
-
-    init()
+      const saved = snap.data()
+      if (saved.weekStart >= weekStart) return // ya está al día
+      tx.set(balRef, rolloverBalance(saved, notas, gastos, srRows, weekStart))
+    }).catch(console.error)
   }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
+  // ── Aplica un delta de balance de forma atómica (increment) ──
+  // Actualiza el estado local de inmediato (optimista) y manda el
+  // incremento a Firestore — sin leer el documento antes, así nunca
+  // pisa lo que otro dispositivo acaba de sumar.
+  const applyBalanceDelta = (delta) => {
+    if (isZeroDelta(delta)) return
+    setBalanceActual(b => b ? addDelta(b, delta) : b)
+    updateDoc(doc(db, 'config', 'balance_actual'), toIncrements(delta)).catch(console.error)
+  }
+
   // ── Sync pagos SR de una nota → sanramon_rows ────────────────
   const syncNotaSRPayments = async (nota) => {
-    const existing = srRows.filter(r => r.notaId === nota.id)
-    await Promise.all(existing.map(r => deleteDoc(doc(db, 'sanramon_rows', r.id))))
+    const existingSnap = await getDocs(query(collection(db, 'sanramon_rows'), where('notaId', '==', nota.id)))
+    await Promise.all(existingSnap.docs.map(d => deleteDoc(d.ref)))
     const srPagos = (nota.pagos || []).filter(p => p.sucursal === 'SR' && p.monto && p.fecha && p.metodoPago)
     await Promise.all(srPagos.map((p, idx) => {
       const id = `nota_${nota.id}_sr_${idx}`
@@ -132,6 +147,9 @@ export default function App() {
       tx.set(doc(db, 'notas', nota.id), notaFinal)
     })
     await syncNotaSRPayments(notaFinal)
+    if (balanceActual) {
+      applyBalanceDelta(notaBalanceDelta(null, notaFinal, balanceActual.weekStart))
+    }
     setView('historial')
   }
 
@@ -144,9 +162,7 @@ export default function App() {
     await setDoc(doc(db, 'notas', notaEditada.id), notaEditada)
     await syncNotaSRPayments(notaEditada)
     if (balanceActual && oldNota) {
-      const newBal = applyNotaEditDiff(balanceActual, oldNota, notaEditada)
-      setBalanceActual(newBal)
-      setDoc(doc(db, 'config', 'balance_actual'), newBal)
+      applyBalanceDelta(notaBalanceDelta(oldNota, notaEditada, balanceActual.weekStart))
     }
   }
 
@@ -156,12 +172,10 @@ export default function App() {
       const snap = await getDoc(doc(db, 'notas', notaId))
       if (snap.exists()) deletedNota = snap.data()
     }
-    const srToDelete = srRows.filter(r => r.notaId === notaId)
-    await Promise.all(srToDelete.map(r => deleteDoc(doc(db, 'sanramon_rows', r.id))))
+    const srToDeleteSnap = await getDocs(query(collection(db, 'sanramon_rows'), where('notaId', '==', notaId)))
+    await Promise.all(srToDeleteSnap.docs.map(d => deleteDoc(d.ref)))
     if (balanceActual && deletedNota) {
-      const newBal = applyNotaEditDiff(balanceActual, deletedNota, { ...deletedNota, pagos: [] })
-      setBalanceActual(newBal)
-      setDoc(doc(db, 'config', 'balance_actual'), newBal)
+      applyBalanceDelta(notaBalanceDelta(deletedNota, null, balanceActual.weekStart))
     }
     await deleteDoc(doc(db, 'notas', notaId))
   }
@@ -174,9 +188,7 @@ export default function App() {
     deletes.forEach(id => deleteDoc(doc(db, 'gastos', id)))
     updatedGastos.forEach(g => setDoc(doc(db, 'gastos', g.id), g))
     if (balanceActual) {
-      const newBal = applyGastosEditDiff(balanceActual, gastos, updatedGastos)
-      setBalanceActual(newBal)
-      setDoc(doc(db, 'config', 'balance_actual'), newBal)
+      applyBalanceDelta(gastosBalanceDelta(gastos, updatedGastos, balanceActual.weekStart))
     }
   }
 
@@ -236,7 +248,7 @@ export default function App() {
   } else if (view === 'calendario') {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} onDeleteNota={handleDeleteNota} />
   } else if (view === 'sanramon') {
-    content = <SanRamonView onBack={() => setView('dashboard')} srRows={srRows} />
+    content = <SanRamonView onBack={() => setView('dashboard')} srRows={srRows} weekStart={balanceActual?.weekStart} />
   } else {
     content = (
       <Dashboard

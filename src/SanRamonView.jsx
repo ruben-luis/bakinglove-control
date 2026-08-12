@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Save, Check } from 'lucide-react'
 import { db } from './firebase'
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { srRowBalanceDelta, mergeDeltas, isZeroDelta } from './balance'
+import { toIncrements } from './balanceSync'
 
 const DIAS  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -68,7 +70,7 @@ const CHECK = (
   </svg>
 )
 
-export default function SanRamonView({ onBack, srRows = [] }) {
+export default function SanRamonView({ onBack, srRows = [], weekStart }) {
   const allRowsRef = useRef([])
   const saldosRef  = useRef({})
 
@@ -108,6 +110,16 @@ export default function SanRamonView({ onBack, srRows = [] }) {
     toDelete.forEach(r => deleteDoc(doc(db, 'sanramon_rows', r.id)))
     filled.forEach(r => setDoc(doc(db, 'sanramon_rows', r.id), r))
 
+    if (weekStart) {
+      const deltas = [
+        ...toDelete.map(r => srRowBalanceDelta(r, null, weekStart)),
+        ...filled.map(r => srRowBalanceDelta(prevForDay.find(p => p.id === r.id) || null, r, weekStart)),
+      ]
+      const delta = mergeDeltas(...deltas)
+      if (!isZeroDelta(delta)) {
+        updateDoc(doc(db, 'config', 'balance_actual'), toIncrements(delta)).catch(console.error)
+      }
+    }
   }
 
   function switchDate(newDate) {
