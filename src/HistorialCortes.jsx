@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Save } from 'lucide-react'
-import { collection, getDocs } from 'firebase/firestore'
+import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore'
 import { db } from './firebase'
 
 const NAVY = '#1f2b5e'
@@ -13,6 +13,7 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
   const [cortes,    setCortes]    = useState([])
   const [loading,   setLoading]   = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [borrando,  setBorrando]  = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -32,6 +33,17 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
       await load()
     } finally {
       setGuardando(false)
+    }
+  }
+
+  const handleBorrar = async (id) => {
+    if (!window.confirm('¿Borrar este corte? Esta acción no se puede deshacer.')) return
+    setBorrando(id)
+    try {
+      await deleteDoc(doc(db, 'cortes_semana', id))
+      await load()
+    } finally {
+      setBorrando(null)
     }
   }
 
@@ -97,12 +109,24 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
               <div key={c.id} style={{ background: '#fff', borderRadius: 14, padding: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
                   <strong style={{ color: NAVY, fontSize: 15 }}>{c.id}</strong>
-                  <span style={{
-                    fontSize: 10, color: '#888', textTransform: 'uppercase',
-                    background: '#f0f0f4', borderRadius: 6, padding: '2px 8px', fontWeight: 700,
-                  }}>
-                    {c.tipo === 'manual' ? 'Manual' : 'Automático'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      fontSize: 10, color: '#888', textTransform: 'uppercase',
+                      background: '#f0f0f4', borderRadius: 6, padding: '2px 8px', fontWeight: 700,
+                    }}>
+                      {c.tipo === 'manual' ? 'Manual' : 'Automático'}
+                    </span>
+                    <button
+                      onClick={() => handleBorrar(c.id)}
+                      disabled={borrando === c.id}
+                      style={{
+                        background: 'none', border: 'none', cursor: borrando === c.id ? 'default' : 'pointer',
+                        padding: 4, opacity: borrando === c.id ? 0.4 : 1,
+                      }}
+                    >
+                      <Trash2 size={15} color="#c0392b" />
+                    </button>
+                  </div>
                 </div>
                 <div style={{ fontSize: 13, color: '#555', lineHeight: 1.8 }}>
                   <div>Efectivo BKL: {fmt(efBkl)}</div>
