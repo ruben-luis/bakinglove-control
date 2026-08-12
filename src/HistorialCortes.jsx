@@ -23,7 +23,7 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
     setLoading(false)
   }
 
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/set-state-in-effect
 
   const handleGuardar = async () => {
     setGuardando(true)
@@ -81,13 +81,17 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {cortes.map(c => {
-            const efBkl   = (seed.efectivoBkl   || 0) + (c.prevBklEf         || 0) - (c.prevBklEfGast         || 0)
-            const bkDay   = (seed.bancos        || 0) + (c.prevBklBancoDay   || 0) - (c.prevBklBancoGast      || 0)
-            const bkJorge = (seed.bancosJorge   || 0) + (c.prevBklBancoJorge || 0) - (c.prevBklBancoJorgeGast || 0)
-            const efSr    = (seed.efectivoSr    || 0) + (c.prevSrEfV         || 0) - (c.prevSrEfS             || 0)
-            const srDay   = (c.prevSrBancoDayV   || 0) - (c.prevSrBancoDayS   || 0)
-            const srJorge = (c.prevSrBancoJorgeV || 0) - (c.prevSrBancoJorgeS || 0)
-            const total   = efBkl + bkDay + bkJorge + efSr + srDay + srJorge
+            // Efectivo BKL/SR van por caja separada, pero Banco Day y
+            // Banco JORGE son cuentas compartidas entre sucursales (mismo
+            // criterio que ConcentradoIngresos/Dashboard) — no se dividen
+            // por sucursal para no inventar un desglose que no existe.
+            const efBkl   = (seed.efectivoBkl  || 0) + (c.prevBklEf         || 0) - (c.prevBklEfGast         || 0)
+            const efSr    = (seed.efectivoSr   || 0) + (c.prevSrEfV         || 0) - (c.prevSrEfS             || 0)
+            const bkDay   = (seed.bancos       || 0) + (c.prevBklBancoDay   || 0) - (c.prevBklBancoGast      || 0)
+                            + (c.prevSrBancoDayV   || 0) - (c.prevSrBancoDayS   || 0)
+            const bkJorge = (seed.bancosJorge  || 0) + (c.prevBklBancoJorge || 0) - (c.prevBklBancoJorgeGast || 0)
+                            + (c.prevSrBancoJorgeV || 0) - (c.prevSrBancoJorgeS || 0)
+            const total   = efBkl + efSr + bkDay + bkJorge
 
             return (
               <div key={c.id} style={{ background: '#fff', borderRadius: 14, padding: 16 }}>
@@ -102,11 +106,9 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
                 </div>
                 <div style={{ fontSize: 13, color: '#555', lineHeight: 1.8 }}>
                   <div>Efectivo BKL: {fmt(efBkl)}</div>
-                  <div>Banco Day BKL: {fmt(bkDay)}</div>
-                  <div>Banco JORGE BKL: {fmt(bkJorge)}</div>
                   <div>Efectivo SR: {fmt(efSr)}</div>
-                  <div>Banco Day SR: {fmt(srDay)}</div>
-                  <div>Banco JORGE SR: {fmt(srJorge)}</div>
+                  <div>Banco Day (BKL+SR): {fmt(bkDay)}</div>
+                  <div>Banco JORGE (BKL+SR): {fmt(bkJorge)}</div>
                 </div>
                 <div style={{ marginTop: 8, fontWeight: 800, color: NAVY, fontSize: 15 }}>
                   Total: {fmt(total)}
