@@ -97,12 +97,12 @@ export default function App() {
       if (saved.weekStart >= weekStart) return // ya está al día
       const rolled = rolloverBalance(saved, notas, gastos, srRows, weekStart)
       tx.set(balRef, rolled)
-      // Archiva el corte de la semana que se acaba de cerrar (congelado,
-      // nunca se vuelve a tocar) — así una futura corrección solo necesita
-      // recalcular desde el último corte guardado, no desde el inicio.
-      tx.set(doc(db, 'cortes_semana', saved.weekStart), {
-        ...rolled, tipo: 'automatico', savedAt: new Date().toISOString(),
-      })
+      // El corte de la semana NO se archiva aquí: este avance puede
+      // dispararse a cualquier hora (ej. la madrugada del lunes) antes
+      // de que se haya capturado toda la información de la semana que
+      // cierra. El corte se guarda a mano desde Historial de Cortes,
+      // cuando alguien ya verificó que la semana está completa y
+      // cuadrada.
     }).catch(console.error)
   }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 

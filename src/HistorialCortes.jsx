@@ -54,9 +54,11 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
       </div>
 
       <p style={{ color: '#777', fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
-        Cada lunes se guarda un corte automático al cerrar la semana. También
-        puedes guardar uno manual ahora mismo, por ejemplo después de
-        reconciliar contra el banco.
+        Guarda un corte cuando ya hayas verificado que la semana está
+        completa y cuadrada (por ejemplo, después de reconciliar contra
+        el banco). Un corte guardado queda congelado para siempre — así,
+        si algo se descuadra más adelante, solo hay que recalcular desde
+        el último corte, no desde el inicio.
       </p>
 
       <button
@@ -69,7 +71,7 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
         }}
       >
         <Save size={16} />
-        {guardando ? 'Guardando…' : 'Guardar corte de hoy'}
+        {guardando ? 'Guardando…' : 'Guardar corte de la semana'}
       </button>
 
       {loading ? (
