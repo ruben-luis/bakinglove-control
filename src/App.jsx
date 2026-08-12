@@ -17,6 +17,7 @@ import ConcentradoIngresos from './ConcentradoIngresos'
 import ConcentradoGastos from './ConcentradoGastos'
 import CalendarioEntregas from './CalendarioEntregas'
 import SanRamonView from './SanRamonView'
+import HistorialCortes from './HistorialCortes'
 import PinModal, { savePin } from './PinModal'
 
 export default function App() {
@@ -94,7 +95,14 @@ export default function App() {
       }
       const saved = snap.data()
       if (saved.weekStart >= weekStart) return // ya está al día
-      tx.set(balRef, rolloverBalance(saved, notas, gastos, srRows, weekStart))
+      const rolled = rolloverBalance(saved, notas, gastos, srRows, weekStart)
+      tx.set(balRef, rolled)
+      // Archiva el corte de la semana que se acaba de cerrar (congelado,
+      // nunca se vuelve a tocar) — así una futura corrección solo necesita
+      // recalcular desde el último corte guardado, no desde el inicio.
+      tx.set(doc(db, 'cortes_semana', saved.weekStart), {
+        ...rolled, tipo: 'automatico', savedAt: new Date().toISOString(),
+      })
     }).catch(console.error)
   }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -107,6 +115,16 @@ export default function App() {
     if (isZeroDelta(delta)) return
     setBalanceActual(b => b ? addDelta(b, delta) : b)
     updateDoc(doc(db, 'config', 'balance_actual'), toIncrements(delta)).catch(console.error)
+  }
+
+  // ── Guarda un corte manual (congelado) con los datos de hoy ──
+  const saveManualCorte = async () => {
+    const now = new Date()
+    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const snapshot = computeBalanceFull(notas, gastos, srRows, todayISO)
+    await setDoc(doc(db, 'cortes_semana', `manual_${todayISO}_${Date.now()}`), {
+      ...snapshot, tipo: 'manual', savedAt: new Date().toISOString(),
+    })
   }
 
   // ── Sync pagos SR de una nota → sanramon_rows ────────────────
@@ -194,7 +212,7 @@ export default function App() {
 
   // ── Navegación / PIN ──────────────────────────────────────────
   function navigate(dest) {
-    if (dest === 'concentrado' || dest === 'gastos') {
+    if (dest === 'concentrado' || dest === 'gastos' || dest === 'cortes') {
       setPinAction('nav-' + dest)
     } else {
       setView(dest)
@@ -204,6 +222,7 @@ export default function App() {
   function handlePinSuccess(pin) {
     if (pinAction === 'nav-concentrado') { setView('concentrado'); setPinAction(null) }
     else if (pinAction === 'nav-gastos') { setView('gastos'); setPinAction(null) }
+    else if (pinAction === 'nav-cortes') { setView('cortes'); setPinAction(null) }
     else if (pinAction === 'change-verify') { setPinAction('change-new') }
     else if (pinAction === 'change-new') { savePin(pin).then(() => setPinAction(null)) }
   }
@@ -249,6 +268,8 @@ export default function App() {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} onDeleteNota={handleDeleteNota} />
   } else if (view === 'sanramon') {
     content = <SanRamonView onBack={() => setView('dashboard')} srRows={srRows} weekStart={balanceActual?.weekStart} />
+  } else if (view === 'cortes') {
+    content = <HistorialCortes onBack={() => setView('dashboard')} onGuardarCorte={saveManualCorte} saldosSemana={saldosSemana} />
   } else {
     content = (
       <Dashboard

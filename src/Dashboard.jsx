@@ -5,7 +5,7 @@ import {
   Plus, Pencil, ArrowRight, Calendar,
   CakeSlice, Cookie, Candy, IceCreamCone,
   Croissant, Cherry, Cake, Coffee, ClipboardList,
-  Lock, KeyRound, Store,
+  Lock, KeyRound, Store, Archive,
 } from 'lucide-react'
 import PinModal from './PinModal'
 
@@ -522,6 +522,7 @@ const buildModules = (onNavigate) => [
   { title: 'Concentrado de Gastos',   icon: TrendingDown, accent: 'sky',   desc: 'Controla insumos y costos de operación.',      onOpen: () => onNavigate('gastos') },
   { title: 'Calendario de Entregas',  icon: CalendarDays, accent: 'lilac', desc: 'Organiza tus pedidos por fecha de entrega.',   onOpen: () => onNavigate('calendario') },
   { title: 'Control San Ramón',       icon: Store,        accent: 'pink',  desc: 'Registro de ventas y salidas de la sucursal.', onOpen: () => onNavigate('sanramon') },
+  { title: 'Historial de Cortes',     icon: Archive,      accent: 'mint',  desc: 'Guarda y revisa el corte de caja de cada semana.', onOpen: () => onNavigate('cortes') },
 ]
 
 // ═══════════════════════════════════════════════════════════════
