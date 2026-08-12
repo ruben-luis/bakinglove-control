@@ -39,18 +39,29 @@ function applyMoneyFmt(ws, cols, rowStart, rowEnd) {
 // ── Exportar ────────────────────────────────────────────────────
 // notas, gastos y srRows se reciben desde el componente (datos de Firestore)
 
-export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana = []) {
-  const wb = XLSX.utils.book_new()
+const colLetter = n => { let s='', x=n+1; while(x>0){s=String.fromCharCode(64+(x%26||26))+s;x=Math.floor((x-1)/26)}; return s }
 
-  // ── Hoja 1: INGRESOS (Notas de venta) ─────────────────────────
+// Arma y agrega una hoja de "Ingresos" (notas de venta) para una sola
+// sucursal (BKL o San Ramón). Cada sucursal tiene su propia hoja para
+// que no se sumen por error los ingresos de una sucursal con los de
+// la otra al hacer un análisis manual del Excel (fue justo lo que
+// pasó cuando ambas venían juntas en una sola hoja sin distinción).
+//
+// El filtro se aplica por PAGO, no por nota completa: una nota cuyos
+// pagos están repartidos entre las dos sucursales (poco común, pero
+// pasa) aparece en ambas hojas, cada una mostrando solo los pagos que
+// le corresponden — así "Total Pagado" de cada hoja siempre es la
+// suma real de esa sucursal, sin mezclar dinero de la otra.
+function addIngresosSheet(wb, sheetName, notas, sucursalMatch) {
+  const notasFiltradas = notas
+    .map(n => ({ ...n, pagos: (n.pagos || []).filter(p => p.monto && sucursalMatch(p)) }))
+    .filter(n => n.pagos.length > 0)
 
-  const maxPagos = Math.max(1, ...notas.map(n =>
-    (n.pagos || []).filter(p => p.monto).length
-  ))
+  const maxPagos = Math.max(1, ...notasFiltradas.map(n => n.pagos.length))
 
   const ingHead = [
     'Folio', 'Fecha Registro', 'Fecha Entrega', 'Cliente', 'Contacto',
-    'Productos', 'Total Pedido', 'Total Pagado', 'Restante', 'Estado',
+    'Productos', 'Total Pedido', 'Pagado (esta sucursal)', 'Estado',
     ...Array.from({ length: maxPagos }, (_, i) =>
       maxPagos === 1
         ? ['Fecha de Pago', 'Forma de Pago', 'Monto']
@@ -58,7 +69,7 @@ export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana
     ).flat(),
   ]
 
-  const sortedNotas = [...notas].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+  const sortedNotas = [...notasFiltradas].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
 
   const ingRows = sortedNotas.map(n => {
     const prods = (n.productos || [])
@@ -66,18 +77,15 @@ export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana
       .map(p => `${p.cantidad ? p.cantidad + 'x ' : ''}${p.descripcion}`)
       .join(' | ')
 
-    const pagosArr = (n.pagos || [])
-      .filter(p => p.monto)
-      .flatMap(p => {
-        const fecha = p.fecha ? p.fecha.split('-').reverse().join('/') : ''
-        return [fecha, p.metodoPago || '', num(p.monto)]
-      })
+    const pagosArr = n.pagos.flatMap(p => {
+      const fecha = p.fecha ? p.fecha.split('-').reverse().join('/') : ''
+      return [fecha, p.metodoPago || '', num(p.monto)]
+    })
 
     while (pagosArr.length < maxPagos * 3) pagosArr.push('')
 
-    const totalPedido = num(n.totalPedido)
-    const totalPagado = num(n.totalPagado)
-    const resta       = num(n.resta ?? (totalPedido - totalPagado))
+    const totalPedido       = num(n.totalPedido)
+    const pagadoEstaSucursal = n.pagos.reduce((s, p) => s + num(p.monto), 0)
 
     return [
       n.folio || '',
@@ -87,8 +95,7 @@ export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana
       n.contacto || '',
       prods,
       totalPedido,
-      totalPagado,
-      resta,
+      pagadoEstaSucursal,
       n.estado || '',
       ...pagosArr,
     ]
@@ -97,16 +104,25 @@ export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana
   const wsIng = XLSX.utils.aoa_to_sheet([ingHead, ...ingRows])
   wsIng['!cols'] = [
     { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 24 }, { wch: 14 },
-    { wch: 40 }, { wch: 13 }, { wch: 13 }, { wch: 11 }, { wch: 11 },
+    { wch: 40 }, { wch: 13 }, { wch: 18 }, { wch: 11 },
     ...Array.from({ length: maxPagos }, () => [{ wch: 13 }, { wch: 16 }, { wch: 12 }]).flat(),
   ]
-  const colLetter = n => { let s='', x=n+1; while(x>0){s=String.fromCharCode(64+(x%26||26))+s;x=Math.floor((x-1)/26)}; return s }
-  const montosCols = Array.from({ length: maxPagos }, (_, i) => colLetter(10 + i * 3 + 2))
+  const montosCols = Array.from({ length: maxPagos }, (_, i) => colLetter(9 + i * 3 + 2))
   if (ingRows.length) {
-    applyMoneyFmt(wsIng, ['G', 'H', 'I'], 2, ingRows.length + 1)
+    applyMoneyFmt(wsIng, ['G', 'H'], 2, ingRows.length + 1)
     applyMoneyFmt(wsIng, montosCols, 2, ingRows.length + 1)
   }
-  XLSX.utils.book_append_sheet(wb, wsIng, 'Ingresos')
+  XLSX.utils.book_append_sheet(wb, wsIng, sheetName)
+}
+
+export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana = []) {
+  const wb = XLSX.utils.book_new()
+
+  // ── Hojas 1 y 2: INGRESOS, separadas por sucursal ──────────────
+  addIngresosSheet(wb, 'Ingresos BKL', notas, p => p.sucursal !== 'SR')
+  addIngresosSheet(wb, 'Ingresos San Ramón', notas, p => p.sucursal === 'SR')
+
+  const sortedNotas = [...notas].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
 
   // ── Hoja 2: GASTOS (Bakinglove) ───────────────────────────────
   const gastHead = ['Fecha', 'Descripción del gasto', 'Monto', 'Forma de Pago', 'Categoría', 'Semana']
