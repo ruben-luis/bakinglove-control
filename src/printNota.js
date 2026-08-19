@@ -115,7 +115,7 @@ export async function printNota({
       <span class="fv">${esc(folio)}</span>
     </div>
     <div class="contact">
-      <div class="cline"><span class="ico-circle">☎</span><b>222 116 40 61</b></div>
+      <div class="cline"><span class="ico-circle">☎</span><b>221 974 04 78</b></div>
       <div class="cline"><span class="ico-pin">&#9679;</span><b>Calle Del Sol #68, Bello Horizonte</b></div>
       <div class="cline"><span class="ico-pin">&#9679;</span><b>Local 2, C Tulipanes, San Ramon</b></div>
     </div>

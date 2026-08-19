@@ -262,7 +262,7 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
                 <span style={{ width: 20, height: 20, border: `1.5px solid ${NAVY}`, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                   <Phone size={11} color={NAVY} />
                 </span>
-                <b style={{ fontWeight: 700 }}>222 116 40 61</b>
+                <b style={{ fontWeight: 700 }}>221 974 04 78</b>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
                 <MapPin size={15} color={PINK_TEXT} style={{ flexShrink: 0 }} />
