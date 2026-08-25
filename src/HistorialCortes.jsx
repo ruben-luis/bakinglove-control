@@ -52,6 +52,20 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
     !earliest || s.id < earliest.id ? s : earliest
   ), null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0, bancosJorge: 0 }
 
+  // Orden cronológico (viejo → nuevo) para poder comparar cada corte
+  // contra el inmediatamente anterior y sacar "cuánto entró" en ese periodo.
+  const cortesAsc = [...cortes].sort((a, b) => (a.savedAt || '').localeCompare(b.savedAt || ''))
+  const ingresoAcumulado = c => (c.prevBklEf || 0) + (c.prevBklBancoDay || 0) + (c.prevBklBancoJorge || 0)
+    + (c.prevSrEfV || 0) + (c.prevSrBancoDayV || 0) + (c.prevSrBancoJorgeV || 0)
+
+  // Cuánto entró (ingreso bruto) entre este corte y el anterior. El
+  // corte más viejo no tiene con qué compararse → null (sin dato).
+  const ganadoDesdeCorteAnterior = c => {
+    const idx = cortesAsc.findIndex(x => x.id === c.id)
+    if (idx <= 0) return null
+    return ingresoAcumulado(c) - ingresoAcumulado(cortesAsc[idx - 1])
+  }
+
   return (
     <div style={{
       minHeight: '100vh', background: '#eceaee',
@@ -104,6 +118,7 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
             const bkJorge = (seed.bancosJorge  || 0) + (c.prevBklBancoJorge || 0) - (c.prevBklBancoJorgeGast || 0)
                             + (c.prevSrBancoJorgeV || 0) - (c.prevSrBancoJorgeS || 0)
             const total   = efBkl + efSr + bkDay + bkJorge
+            const ganado  = ganadoDesdeCorteAnterior(c)
 
             return (
               <div key={c.id} style={{ background: '#fff', borderRadius: 14, padding: 16 }}>
@@ -128,6 +143,11 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
                     </button>
                   </div>
                 </div>
+                {ganado !== null && (
+                  <div style={{ textAlign: 'right', fontSize: 11, color: '#9a9aa5', marginTop: -4, marginBottom: 8 }}>
+                    Ganó esta semana: {fmt(ganado)}
+                  </div>
+                )}
                 <div style={{ fontSize: 13, color: '#555', lineHeight: 1.8 }}>
                   <div>Efectivo BKL: {fmt(efBkl)}</div>
                   <div>Efectivo SR: {fmt(efSr)}</div>
