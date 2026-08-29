@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './index.css'
-import { db } from './firebase'
+import { db, authReady } from './firebase'
 import {
   collection, onSnapshot, query, where, getDocs,
   doc, setDoc, updateDoc, deleteDoc, getDoc, runTransaction,
@@ -32,48 +32,62 @@ export default function App() {
   const [balanceActual, setBalanceActual] = useState(null)
 
   // ── Suscripción en tiempo real a Firestore ────────────────────
+  // Espera a que exista sesión (authReady) antes de suscribirse: las
+  // reglas de Firestore exigen auth != null, así que suscribirse antes
+  // provocaría errores de permission-denied.
   useEffect(() => {
+    let unsubNotas = () => {}, unsubGastos = () => {}, unsubSR = () => {}, unsubSaldos = () => {}
+    let cancelled = false
     const loaded = { notas: false, gastos: false, sr: false }
     const check  = () => {
       if (loaded.notas && loaded.gastos && loaded.sr) setLoading(false)
     }
 
-    const unsubNotas = onSnapshot(
-      collection(db, 'notas'),
-      snap => {
-        setNotas(snap.docs.map(d => d.data()))
-        loaded.notas = true; check()
-      }
-    )
-    const unsubGastos = onSnapshot(
-      collection(db, 'gastos'),
-      snap => {
-        setGastos(snap.docs.map(d => d.data()))
-        loaded.gastos = true; check()
-      }
-    )
-    const unsubSR = onSnapshot(
-      collection(db, 'sanramon_rows'),
-      snap => {
-        setSrRows(snap.docs.map(d => d.data()))
-        loaded.sr = true; check()
-      }
-    )
-    const unsubSaldos = onSnapshot(collection(db, 'saldos_semana'), snap => {
-      setSaldosSemana(snap.docs.map(d => d.data()))
-    })
+    authReady.then(() => {
+      if (cancelled) return
+      unsubNotas = onSnapshot(
+        collection(db, 'notas'),
+        snap => {
+          setNotas(snap.docs.map(d => d.data()))
+          loaded.notas = true; check()
+        }
+      )
+      unsubGastos = onSnapshot(
+        collection(db, 'gastos'),
+        snap => {
+          setGastos(snap.docs.map(d => d.data()))
+          loaded.gastos = true; check()
+        }
+      )
+      unsubSR = onSnapshot(
+        collection(db, 'sanramon_rows'),
+        snap => {
+          setSrRows(snap.docs.map(d => d.data()))
+          loaded.sr = true; check()
+        }
+      )
+      unsubSaldos = onSnapshot(collection(db, 'saldos_semana'), snap => {
+        setSaldosSemana(snap.docs.map(d => d.data()))
+      })
+    }).catch(console.error)
 
-    return () => { unsubNotas(); unsubGastos(); unsubSR(); unsubSaldos() }
+    return () => { cancelled = true; unsubNotas(); unsubGastos(); unsubSR(); unsubSaldos() }
   }, [])
 
   // ── Balance pre-computado: sincronizado en tiempo real ────────
   // (antes se leía una sola vez con getDoc; así, si otro dispositivo
   // actualiza el balance, este se entera sin necesidad de recargar)
   useEffect(() => {
-    const balRef = doc(db, 'config', 'balance_actual')
-    return onSnapshot(balRef, snap => {
-      if (snap.exists()) setBalanceActual(snap.data())
-    })
+    let unsub = () => {}
+    let cancelled = false
+    authReady.then(() => {
+      if (cancelled) return
+      const balRef = doc(db, 'config', 'balance_actual')
+      unsub = onSnapshot(balRef, snap => {
+        if (snap.exists()) setBalanceActual(snap.data())
+      })
+    }).catch(console.error)
+    return () => { cancelled = true; unsub() }
   }, [])
 
   // ── Avance de semana (rollover), protegido con transacción ───
