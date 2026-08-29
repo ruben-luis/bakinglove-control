@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { initializeFirestore, persistentLocalCache } from 'firebase/firestore'
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,4 +14,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache(),
+})
+export const auth = getAuth(app)
+
+// Las reglas de Firestore exigen una sesión autenticada (ver firestore.rules).
+// Mientras no exista login real por NIP (fase 2), usamos una sesión anónima
+// automática solo para satisfacer ese requisito de las reglas.
+export const authReady = new Promise((resolve, reject) => {
+  const unsubscribe = onAuthStateChanged(auth, user => {
+    if (user) {
+      unsubscribe()
+      resolve(user)
+    }
+  }, reject)
+  signInAnonymously(auth).catch(reject)
 })
