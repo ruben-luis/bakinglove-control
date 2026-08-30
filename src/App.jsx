@@ -218,7 +218,10 @@ export default function App() {
     const newIds = new Set(updatedGastos.map(g => g.id))
     const deletes = [...oldIds].filter(id => !newIds.has(id))
     deletes.forEach(id => deleteDoc(doc(db, 'gastos', id)))
-    updatedGastos.forEach(g => setDoc(doc(db, 'gastos', g.id), g))
+    updatedGastos.forEach(g => {
+      const monto = parseFloat(g.monto)
+      setDoc(doc(db, 'gastos', g.id), { ...g, monto: isNaN(monto) ? 0 : monto })
+    })
     if (balanceActual) {
       applyBalanceDelta(gastosBalanceDelta(gastos, updatedGastos, balanceActual.weekStart))
     }
