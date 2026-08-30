@@ -1,56 +1,49 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { X, Delete } from 'lucide-react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from './firebase'
-
-const DEFAULT_PIN = '1234'
-const PIN_REF = () => doc(db, 'config', 'pin')
+import { doc, setDoc } from 'firebase/firestore'
+import { signInWithCustomToken } from 'firebase/auth'
+import { db, auth } from './firebase'
 
 async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
+// Fija un NIP nuevo (requiere que ya exista una sesión con NIP verificado:
+// las reglas de Firestore rechazan esta escritura si no la hay).
 export async function savePin(pin) {
   const hash = await sha256(pin)
-  await setDoc(PIN_REF(), { hash })
-  localStorage.setItem('bkl_pin', hash)
+  await setDoc(doc(db, 'config', 'pin'), { hash })
 }
 
-async function getStoredHash() {
-  // Firestore es la fuente de verdad — leer siempre para reflejar cambios de otros dispositivos
-  try {
-    const snap = await getDoc(PIN_REF())
-    if (snap.exists()) {
-      const hash = snap.data().hash
-      if (hash) {
-        localStorage.setItem('bkl_pin', hash)
-        return hash
-      }
-    }
-  } catch {
-    // Sin conexión: usar caché local como respaldo
-    const cached = localStorage.getItem('bkl_pin')
-    if (cached) return cached
-  }
-  return null
-}
-
+// Verifica el NIP contra el servidor (api/verificar-pin) en vez de comparar
+// en el navegador. Si es correcto, el servidor regresa un custom token que
+// inicia una sesión marcada como nipVerified — esa marca es lo que las
+// reglas de Firestore exigen para escribir gastos, cortes y cambiar el NIP.
 export async function verifyPin(entered) {
-  const stored = await getStoredHash()
-  if (!stored) {
-    const match = entered === DEFAULT_PIN
-    if (match) await savePin(entered)
-    return match
+  let resp
+  try {
+    resp = await fetch('/api/verificar-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: entered }),
+    })
+  } catch {
+    return { ok: false, error: 'network' }
   }
-  if (stored.length < 64) {
-    // Texto plano (migración desde versión anterior)
-    const match = entered === stored
-    if (match) await savePin(entered)
-    return match
+
+  if (resp.status === 429) {
+    const data = await resp.json().catch(() => ({}))
+    return { ok: false, error: 'locked', waitMinutes: data.waitMinutes }
   }
-  return (await sha256(entered)) === stored
+  if (!resp.ok) {
+    return { ok: false, error: 'wrong_pin' }
+  }
+
+  const { token } = await resp.json()
+  await signInWithCustomToken(auth, token)
+  return { ok: true }
 }
 
 export default function PinModal({ title, mode = 'verify', onSuccess, onCancel }) {
@@ -78,12 +71,17 @@ export default function PinModal({ title, mode = 'verify', onSuccess, onCancel }
   async function handleComplete(d) {
     const entered = d.join('')
     if (mode === 'verify') {
-      const ok = await verifyPin(entered)
-      if (ok) {
+      const result = await verifyPin(entered)
+      if (result.ok) {
         onSuccess()
       } else {
+        const message = result.error === 'locked'
+          ? `Demasiados intentos. Espera ${result.waitMinutes || 5} min.`
+          : result.error === 'network'
+            ? 'Sin conexión, intenta de nuevo'
+            : 'NIP incorrecto'
         setShaking(true)
-        setError('NIP incorrecto')
+        setError(message)
         setTimeout(() => {
           setShaking(false)
           setDigits([])

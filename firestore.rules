@@ -1,14 +1,123 @@
 rules_version = '2';
 
-// FASE 0 — colchón temporal mientras se construye el login real por NIP
-// (custom token vía Cloud Function). Exige sesión autenticada (por ahora
-// anónima) para cerrar el acceso público abierto que Firebase iba a
-// bloquear. Pendiente: reglas con validación de esquema por colección
-// una vez que exista auth real basada en el NIP verificado en servidor.
+// FASE 1 — dos niveles de sesión:
+//  - Anónima (automática al abrir la app): opera lo de siempre sin NIP
+//    (crear/editar notas, ver dashboard/calendario/San Ramón).
+//  - "NIP verificado" (custom token emitido por api/verificar-pin.js
+//    solo si el NIP es correcto, con claim nipVerified=true): requerida
+//    para lo que en la UI ya estaba detrás del NIP (gastos, cortes,
+//    cambiar el NIP), para que la regla coincida con lo que el negocio
+//    espera que esté protegido.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isNipVerified() {
+      return request.auth != null && request.auth.token.nipVerified == true;
+    }
+
+    function isNumber(v) {
+      return v is int || v is float;
+    }
+
+    // ── notas ──────────────────────────────────────────────────
+    match /notas/{notaId} {
+      allow read: if isAuthed();
+      allow create, update: if isAuthed()
+        && request.resource.data.id == notaId
+        && request.resource.data.keys().hasAll(['id', 'folio', 'fecha', 'productos', 'pagos'])
+        && request.resource.data.folio is string
+        && request.resource.data.fecha is string
+        && request.resource.data.productos is list
+        && request.resource.data.productos.size() < 300
+        && request.resource.data.pagos is list
+        && request.resource.data.pagos.size() < 300;
+      allow delete: if isAuthed();
+    }
+
+    // ── gastos (protegido por NIP en la UI) ───────────────────────
+    match /gastos/{gastoId} {
+      allow read: if isAuthed();
+      allow create, update: if isNipVerified()
+        && request.resource.data.id == gastoId
+        && request.resource.data.keys().hasAll(['id', 'fecha', 'concepto', 'monto', 'formaPago'])
+        && request.resource.data.concepto is string
+        && request.resource.data.concepto.size() < 500
+        && isNumber(request.resource.data.monto);
+      allow delete: if isNipVerified();
+    }
+
+    // ── sanramon_rows (pantalla San Ramón, sin NIP en la UI) ──────
+    match /sanramon_rows/{rowId} {
+      allow read: if isAuthed();
+      allow create, update: if isAuthed()
+        && request.resource.data.id == rowId
+        && request.resource.data.keys().hasAll(['id', 'fecha', 'tipo', 'precio'])
+        && request.resource.data.tipo in ['venta', 'salida']
+        && isNumber(request.resource.data.precio);
+      allow delete: if isAuthed();
+    }
+
+    match /sanramon_saldos/{docId} {
+      allow read, write: if isAuthed();
+    }
+
+    match /saldos_semana/{docId} {
+      allow read, write: if isAuthed();
+    }
+
+    // ── cortes_semana (protegido por NIP en la UI, inmutable) ─────
+    match /cortes_semana/{corteId} {
+      allow read: if isAuthed();
+      allow create: if isNipVerified();
+      allow update: if false;
+      allow delete: if isNipVerified();
+    }
+
+    // ── config/pin: solo el backend lo lee (Admin SDK bypassa
+    // reglas); el cliente ya no lo necesita leer, solo escribirlo
+    // al elegir un NIP nuevo, y solo con sesión ya verificada.
+    match /config/pin {
+      allow read: if false;
+      allow write: if isNipVerified()
+        && request.resource.data.keys().hasOnly(['hash'])
+        && request.resource.data.hash is string
+        && request.resource.data.hash.size() == 64;
+    }
+
+    // ── config/pin_security: contador de intentos / bloqueo,
+    // exclusivo del backend (Admin SDK). Cero acceso de clientes,
+    // ni siquiera de lectura, para que nadie se pueda auto-desbloquear.
+    match /config/pin_security {
+      allow read, write: if false;
+    }
+
+    match /config/balance_actual {
+      allow read: if isAuthed();
+      allow write: if isAuthed()
+        && request.resource.data.keys().hasOnly([
+             'weekStart', 'prevBklEf', 'prevBklBancoDay', 'prevBklBancoJorge',
+             'prevBklEfGast', 'prevBklBancoGast', 'prevBklBancoJorgeGast',
+             'prevSrEfV', 'prevSrBancoDayV', 'prevSrBancoJorgeV',
+             'prevSrEfS', 'prevSrBancoDayS', 'prevSrBancoJorgeS'
+           ]);
+    }
+
+    match /config/folio_counter {
+      allow read: if isAuthed();
+      allow write: if isAuthed()
+        && request.resource.data.keys().hasOnly(['current'])
+        && isNumber(request.resource.data.current)
+        && (!exists(/databases/$(database)/documents/config/folio_counter)
+            || request.resource.data.current > resource.data.current);
+    }
+
+    // Deniega todo lo demás por defecto
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
