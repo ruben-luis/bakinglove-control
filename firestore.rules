@@ -28,9 +28,9 @@ service cloud.firestore {
       allow read: if isAuthed();
       allow create, update: if isAuthed()
         && request.resource.data.id == notaId
-        && request.resource.data.keys().hasAll(['id', 'folio', 'fecha', 'productos', 'pagos'])
+        && request.resource.data.keys().hasAll(['id', 'folio', 'fechaEntrega', 'productos', 'pagos'])
         && request.resource.data.folio is string
-        && request.resource.data.fecha is string
+        && request.resource.data.fechaEntrega is string
         && request.resource.data.productos is list
         && request.resource.data.productos.size() < 300
         && request.resource.data.pagos is list
