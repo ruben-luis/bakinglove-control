@@ -280,7 +280,7 @@ export default function App() {
   } else if (view === 'concentrado') {
     content = <ConcentradoIngresos notas={notas} gastos={gastos} srRows={srRows} saldosSemana={saldosSemana} balanceActual={balanceActual} onBack={() => setView('dashboard')} />
   } else if (view === 'gastos') {
-    content = <ConcentradoGastos notas={notas} gastos={gastos} srRows={srRows} saldosSemana={saldosSemana} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
+    content = <ConcentradoGastos notas={notas} gastos={gastos} srRows={srRows} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} onDeleteNota={handleDeleteNota} />
   } else if (view === 'sanramon') {

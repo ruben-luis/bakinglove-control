@@ -121,7 +121,7 @@ function SaldoRow({ label, value, last = false }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-export default function ConcentradoGastos({ notas = [], gastos, srRows = [], saldosSemana = [], onSave, onBack }) {
+export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onSave, onBack }) {
   const now = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [saved,      setSaved]      = useState(false)
@@ -259,7 +259,7 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], sal
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
-            onClick={() => exportarExcel(notas, gastos, srRows, saldosSemana)}
+            onClick={() => exportarExcel(notas, gastos, srRows)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 14px', borderRadius: 12,

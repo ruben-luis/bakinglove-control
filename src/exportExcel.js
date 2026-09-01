@@ -11,15 +11,6 @@ function getWeekBounds(dateInput) {
   return { key: mon.getTime(), mon }
 }
 
-function weekLabel(ts) {
-  const mon = new Date(ts)
-  const sun = new Date(ts)
-  sun.setDate(mon.getDate() + 6)
-  const f = d =>
-    d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
-  return `${f(mon)}  →  ${f(sun)}`
-}
-
 function num(v) {
   const n = parseFloat(v)
   return isNaN(n) ? 0 : n
@@ -41,27 +32,21 @@ function applyMoneyFmt(ws, cols, rowStart, rowEnd) {
 
 const colLetter = n => { let s='', x=n+1; while(x>0){s=String.fromCharCode(64+(x%26||26))+s;x=Math.floor((x-1)/26)}; return s }
 
-// Arma y agrega una hoja de "Ingresos" (notas de venta) para una sola
-// sucursal (BKL o San Ramón). Cada sucursal tiene su propia hoja para
-// que no se sumen por error los ingresos de una sucursal con los de
-// la otra al hacer un análisis manual del Excel (fue justo lo que
-// pasó cuando ambas venían juntas en una sola hoja sin distinción).
-//
-// El filtro se aplica por PAGO, no por nota completa: una nota cuyos
-// pagos están repartidos entre las dos sucursales (poco común, pero
-// pasa) aparece en ambas hojas, cada una mostrando solo los pagos que
-// le corresponden — así "Total Pagado" de cada hoja siempre es la
-// suma real de esa sucursal, sin mezclar dinero de la otra.
-function addIngresosSheet(wb, sheetName, notas, sucursalMatch) {
+// Arma y agrega la hoja de "Ingresos BKL" (notas de venta). Incluye
+// todos los pagos de cada nota sin importar en qué sucursal se
+// cobraron: una nota es una venta de Baking Love, así que su ingreso
+// es de BKL aunque el pago se haya recibido en San Ramón (eso se
+// reconcilia aparte, por caja, en la hoja "San Ramón").
+function addIngresosSheet(wb, sheetName, notas) {
   const notasFiltradas = notas
-    .map(n => ({ ...n, pagos: (n.pagos || []).filter(p => p.monto && sucursalMatch(p)) }))
+    .map(n => ({ ...n, pagos: (n.pagos || []).filter(p => p.monto) }))
     .filter(n => n.pagos.length > 0)
 
   const maxPagos = Math.max(1, ...notasFiltradas.map(n => n.pagos.length))
 
   const ingHead = [
     'Folio', 'Fecha Registro', 'Fecha Entrega', 'Cliente', 'Contacto',
-    'Productos', 'Total Pedido', 'Pagado (esta sucursal)', 'Estado',
+    'Productos', 'Total Pedido', 'Total Pagado', 'Estado',
     ...Array.from({ length: maxPagos }, (_, i) =>
       maxPagos === 1
         ? ['Fecha de Pago', 'Forma de Pago', 'Monto']
@@ -84,8 +69,8 @@ function addIngresosSheet(wb, sheetName, notas, sucursalMatch) {
 
     while (pagosArr.length < maxPagos * 3) pagosArr.push('')
 
-    const totalPedido       = num(n.totalPedido)
-    const pagadoEstaSucursal = n.pagos.reduce((s, p) => s + num(p.monto), 0)
+    const totalPedido = num(n.totalPedido)
+    const totalPagado = n.pagos.reduce((s, p) => s + num(p.monto), 0)
 
     return [
       n.folio || '',
@@ -95,7 +80,7 @@ function addIngresosSheet(wb, sheetName, notas, sucursalMatch) {
       n.contacto || '',
       prods,
       totalPedido,
-      pagadoEstaSucursal,
+      totalPagado,
       n.estado || '',
       ...pagosArr,
     ]
@@ -115,14 +100,11 @@ function addIngresosSheet(wb, sheetName, notas, sucursalMatch) {
   XLSX.utils.book_append_sheet(wb, wsIng, sheetName)
 }
 
-export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana = []) {
+export function exportarExcel(notas = [], gastos = [], srRows = []) {
   const wb = XLSX.utils.book_new()
 
-  // ── Hojas 1 y 2: INGRESOS, separadas por sucursal ──────────────
-  addIngresosSheet(wb, 'Ingresos BKL', notas, p => p.sucursal !== 'SR')
-  addIngresosSheet(wb, 'Ingresos San Ramón', notas, p => p.sucursal === 'SR')
-
-  const sortedNotas = [...notas].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+  // ── Hoja 1: INGRESOS BKL ────────────────────────────────────────
+  addIngresosSheet(wb, 'Ingresos BKL', notas)
 
   // ── Hoja 2: GASTOS (Bakinglove) ───────────────────────────────
   const gastHead = ['Fecha', 'Descripción del gasto', 'Monto', 'Forma de Pago', 'Categoría', 'Semana']
@@ -181,82 +163,6 @@ export function exportarExcel(notas = [], gastos = [], srRows = [], saldosSemana
   ]
   if (srData.length) applyMoneyFmt(wsSR, ['D'], 2, srData.length + 1)
   XLSX.utils.book_append_sheet(wb, wsSR, 'San Ramón')
-
-  // ── Hoja 4: BALANCE GENERAL por semana ────────────────────────
-  const weekMap = new Map()
-
-  sortedNotas.forEach(n => {
-    ;(n.pagos || []).forEach(p => {
-      const pagoDate = p.fecha || n.createdAt
-      if (!pagoDate) return
-      const { key } = getWeekBounds(pagoDate.length === 10 ? pagoDate + 'T12:00:00' : pagoDate)
-      if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
-      if (p.sucursal === 'SR') weekMap.get(key).ingSR   += num(p.monto)
-      else                     weekMap.get(key).ingBKL  += num(p.monto)
-    })
-  })
-
-  gastos.filter(g => g.monto).forEach(g => {
-    const src = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
-    const { key } = getWeekBounds(src)
-    if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
-    weekMap.get(key).gastBKL += num(g.monto)
-  })
-
-  srRows.filter(r => r.precio && r.fecha && !r.fromNota).forEach(r => {
-    const { key } = getWeekBounds(r.fecha + 'T12:00:00')
-    if (!weekMap.has(key)) weekMap.set(key, { ingBKL: 0, gastBKL: 0, ingSR: 0, salidaSR: 0 })
-    if (r.tipo === 'venta')  weekMap.get(key).ingSR    += num(r.precio)
-    if (r.tipo === 'salida') weekMap.get(key).salidaSR += num(r.precio)
-  })
-
-  const sortedWeeks = [...weekMap.entries()].sort((a, b) => a[0] - b[0])
-
-  // Semilla = entrada más antigua en saldos_semana
-  const seed = saldosSemana.reduce((earliest, s) =>
-    !earliest || s.id < earliest.id ? s : earliest
-  , null) || { efectivoBkl: 0, efectivoSr: 0, bancos: 0 }
-  const seedTotal = (seed.efectivoBkl || 0) + (seed.efectivoSr || 0) + (seed.bancos || 0) + (seed.bancosJorge || 0)
-
-  const balHead = ['Semana', 'Ingresos BKL', 'Gastos BKL', 'Balance BKL', 'Ventas SR', 'Salidas SR', 'Balance SR', 'Flujo Neto', 'Saldo Final']
-
-  let saldoAcum = seedTotal
-  const balRows = sortedWeeks.map(([ts, d]) => {
-    const flujoNeto = (d.ingBKL - d.gastBKL) + (d.ingSR - d.salidaSR)
-    saldoAcum += flujoNeto
-    return [
-      weekLabel(ts),
-      d.ingBKL,
-      d.gastBKL,
-      d.ingBKL - d.gastBKL,
-      d.ingSR,
-      d.salidaSR,
-      d.ingSR - d.salidaSR,
-      flujoNeto,
-      saldoAcum,
-    ]
-  })
-
-  const totIng  = sortedWeeks.reduce((s, [, d]) => s + d.ingBKL, 0)
-  const totGast = sortedWeeks.reduce((s, [, d]) => s + d.gastBKL, 0)
-  const totSRV  = sortedWeeks.reduce((s, [, d]) => s + d.ingSR, 0)
-  const totSRS  = sortedWeeks.reduce((s, [, d]) => s + d.salidaSR, 0)
-
-  const balData = [
-    balHead,
-    ['Semilla inicial', '', '', '', '', '', '', '', seedTotal],
-    ...balRows,
-    ['', '', '', '', '', '', '', '', ''],
-    ['TOTAL GENERAL', totIng, totGast, totIng - totGast, totSRV, totSRS, totSRV - totSRS, (totIng - totGast) + (totSRV - totSRS), saldoAcum],
-  ]
-
-  const wsBal = XLSX.utils.aoa_to_sheet(balData)
-  wsBal['!cols'] = [
-    { wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 },
-  ]
-  const lastBal = balData.length
-  applyMoneyFmt(wsBal, ['B','C','D','E','F','G','H','I'], 2, lastBal)
-  XLSX.utils.book_append_sheet(wb, wsBal, 'Balance General')
 
   // ── Descargar ────────────────────────────────────────────────
   const now = new Date()
