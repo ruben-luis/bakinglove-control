@@ -46,7 +46,7 @@ function addIngresosSheet(wb, sheetName, notas) {
 
   const ingHead = [
     'Folio', 'Fecha Registro', 'Fecha Entrega', 'Cliente', 'Contacto',
-    'Productos', 'Total Pedido', 'Total Pagado', 'Estado',
+    'Productos', 'Total Pedido', 'Total Pagado', 'Restante', 'Estado',
     ...Array.from({ length: maxPagos }, (_, i) =>
       maxPagos === 1
         ? ['Fecha de Pago', 'Forma de Pago', 'Monto']
@@ -71,6 +71,7 @@ function addIngresosSheet(wb, sheetName, notas) {
 
     const totalPedido = num(n.totalPedido)
     const totalPagado = n.pagos.reduce((s, p) => s + num(p.monto), 0)
+    const restante    = n.resta ?? (totalPedido - totalPagado)
 
     return [
       n.folio || '',
@@ -81,6 +82,7 @@ function addIngresosSheet(wb, sheetName, notas) {
       prods,
       totalPedido,
       totalPagado,
+      restante,
       n.estado || '',
       ...pagosArr,
     ]
@@ -89,12 +91,12 @@ function addIngresosSheet(wb, sheetName, notas) {
   const wsIng = XLSX.utils.aoa_to_sheet([ingHead, ...ingRows])
   wsIng['!cols'] = [
     { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 24 }, { wch: 14 },
-    { wch: 40 }, { wch: 13 }, { wch: 18 }, { wch: 11 },
+    { wch: 40 }, { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 11 },
     ...Array.from({ length: maxPagos }, () => [{ wch: 13 }, { wch: 16 }, { wch: 12 }]).flat(),
   ]
-  const montosCols = Array.from({ length: maxPagos }, (_, i) => colLetter(9 + i * 3 + 2))
+  const montosCols = Array.from({ length: maxPagos }, (_, i) => colLetter(10 + i * 3 + 2))
   if (ingRows.length) {
-    applyMoneyFmt(wsIng, ['G', 'H'], 2, ingRows.length + 1)
+    applyMoneyFmt(wsIng, ['G', 'H', 'I'], 2, ingRows.length + 1)
     applyMoneyFmt(wsIng, montosCols, 2, ingRows.length + 1)
   }
   XLSX.utils.book_append_sheet(wb, wsIng, sheetName)
