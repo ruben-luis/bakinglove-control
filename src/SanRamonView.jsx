@@ -79,6 +79,7 @@ export default function SanRamonView({ onBack, srRows = [], weekStart }) {
   const [saldoIni,   setSaldoIni]   = useState('')
   const [ready,      setReady]      = useState(false)
   const [dirty,      setDirty]      = useState(false)
+  const [cerrada,    setCerrada]    = useState(false)
 
   // Carga inicial desde Firestore
   useEffect(() => {
@@ -162,6 +163,25 @@ export default function SanRamonView({ onBack, srRows = [], weekStart }) {
   function handleGuardar() {
     persist(dayRows, filterDate)
     setDirty(false)
+  }
+
+  // ── Cierra el saldo acumulado de San Ramón a hoy ──────────────
+  // Guarda un nuevo checkpoint en sanramon_saldos (saldo inicial de
+  // mañana). computeSaldoInicial ya busca el checkpoint más reciente
+  // <= la fecha pedida, así que en cuanto exista este nuevo registro,
+  // los cálculos de saldo dejan de tener que sumar desde el checkpoint
+  // original (el único que existía) y solo suman desde este cierre.
+  async function handleCerrarSemana() {
+    if (dirty) persist(dayRows, filterDate)
+    const d = new Date(todayISO() + 'T12:00:00')
+    d.setDate(d.getDate() + 1)
+    const manana = localISO(d)
+    const saldo = computeSaldoInicial(manana, saldosRef.current, allRowsRef.current)
+    if (saldo == null) return
+    await setDoc(doc(db, 'sanramon_saldos', manana), { saldo })
+    saldosRef.current = { ...saldosRef.current, [manana]: saldo }
+    setCerrada(true)
+    setTimeout(() => setCerrada(false), 2500)
   }
 
   const totalVentas  = dayRows.reduce((s, r) => r.tipo === 'venta'  ? s + (parseFloat(r.precio) || 0) : s, 0)
@@ -431,12 +451,20 @@ export default function SanRamonView({ onBack, srRows = [], weekStart }) {
           }
         </button>
 
-        <button
-          onClick={onBack}
-          className="w-full py-4 bg-ink border-2 border-ink rounded-2xl text-cream font-bold text-sm shadow-hard active:scale-95 transition-transform mb-4"
-        >
-          Volver al panel
-        </button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button
+            onClick={onBack}
+            className="flex-1 py-4 bg-ink border-2 border-ink rounded-2xl text-cream font-bold text-sm shadow-hard active:scale-95 transition-transform"
+          >
+            Volver al panel
+          </button>
+          <button
+            onClick={handleCerrarSemana}
+            className="px-4 py-4 bg-white border-2 border-ink rounded-2xl text-ink font-bold text-xs shadow-hard active:scale-95 transition-transform whitespace-nowrap"
+          >
+            {cerrada ? 'Cerrada ✓' : 'Cerrar semana'}
+          </button>
+        </div>
 
       </div>
     </div>
