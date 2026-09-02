@@ -20,6 +20,12 @@ import SanRamonView from './SanRamonView'
 import HistorialCortes from './HistorialCortes'
 import PinModal, { savePin } from './PinModal'
 
+function shallowEqual(a, b) {
+  const keysA = Object.keys(a), keysB = Object.keys(b)
+  if (keysA.length !== keysB.length) return false
+  return keysA.every(k => a[k] === b[k])
+}
+
 export default function App() {
   const [view,         setView]         = useState('dashboard')
   const [notas,        setNotas]        = useState([])
@@ -214,13 +220,16 @@ export default function App() {
 
   // ── CRUD gastos ───────────────────────────────────────────────
   const handleSaveGastos = (updatedGastos) => {
-    const oldIds = new Set(gastos.map(g => g.id))
+    const oldById = new Map(gastos.map(g => [g.id, g]))
     const newIds = new Set(updatedGastos.map(g => g.id))
-    const deletes = [...oldIds].filter(id => !newIds.has(id))
+    const deletes = [...oldById.keys()].filter(id => !newIds.has(id))
     deletes.forEach(id => deleteDoc(doc(db, 'gastos', id)))
     updatedGastos.forEach(g => {
       const monto = parseFloat(g.monto)
-      setDoc(doc(db, 'gastos', g.id), { ...g, monto: isNaN(monto) ? 0 : monto })
+      const normalizado = { ...g, monto: isNaN(monto) ? 0 : monto }
+      const anterior = oldById.get(g.id)
+      if (anterior && shallowEqual(anterior, normalizado)) return // sin cambios: no reescribir
+      setDoc(doc(db, 'gastos', g.id), normalizado)
     })
     if (balanceActual) {
       applyBalanceDelta(gastosBalanceDelta(gastos, updatedGastos, balanceActual.weekStart))

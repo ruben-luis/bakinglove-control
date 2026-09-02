@@ -123,7 +123,7 @@ export default function SanRamonView({ onBack, srRows = [], weekStart }) {
   }
 
   function switchDate(newDate) {
-    persist(dayRows, filterDate)
+    if (dirty) persist(dayRows, filterDate)
     setDirty(false)
     setFilterDate(newDate)
     setDayRows(padRows(allRowsRef.current.filter(r => r.fecha === newDate), newDate))
