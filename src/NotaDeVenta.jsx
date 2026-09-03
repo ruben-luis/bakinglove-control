@@ -126,7 +126,6 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
   const [lugar, setL]   = useState(() => notaInicial?.lugarEntrega || '')
   const [costo, setK]   = useState(() => notaInicial?.costoEntrega ? String(notaInicial.costoEntrega) : '')
   const [tel,   setT]   = useState(() => notaInicial?.contacto     || '')
-  const [ubicSel, setUbicSel] = useState(() => notaInicial?.ubicacion || null)
   const [prods, setProds] = useState(() => {
     if (!notaInicial?.productos) return [emptyP(), emptyP()]
     const existing = notaInicial.productos.map(p => ({ cantidad: p.cantidad || '', descripcion: p.descripcion || '', precioU: p.precioU || '' }))
@@ -166,7 +165,6 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
           ...notaInicial,
           fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
           lugarEntrega: lugar, costoEntrega, contacto: tel,
-          ubicacion: ubicSel,
           productos: prods.map(p => ({ ...p, total: (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0) })),
           observaciones: obs,
           pagos: buildPagos(),
@@ -180,7 +178,6 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
           id: crypto.randomUUID(),
           fechaEntrega: fecha, horaEntrega: hora, cliente: cli,
           lugarEntrega: lugar, costoEntrega, contacto: tel,
-          ubicacion: ubicSel,
           productos: prods.map(p => ({ ...p, total: (parseFloat(p.cantidad) || 0) * (parseFloat(p.precioU) || 0) })),
           observaciones: obs,
           pagos: buildPagos(),
@@ -226,7 +223,7 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
           <ArrowLeft size={16} strokeWidth={2.5} /> Volver
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => printNota({ folio: '---', fecha, hora, cli, lugar, costo, tel, ubicSel, prods, obs, pagos, costoEntrega, totalGeneral, resta })}
+          <button onClick={() => printNota({ folio: '---', fecha, hora, cli, lugar, costo, tel, prods, obs, pagos, costoEntrega, totalGeneral, resta })}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             <FileDown size={14} /> PDF
           </button>
@@ -301,31 +298,6 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
               <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Contacto</div>
               <div style={{ flex: '1 1 80px', minHeight: 38 }}><FI value={tel} onChange={e => setT(e.target.value)} placeholder="Teléfono" /></div>
             </div>
-          </div>
-
-          {/* ── Ubicación ──
-              CONSUMO: siempre igual (estático, no afecta selección)
-              BELLO HORIZONTE / SAN RAMON: exclusivos entre sí ── */}
-          <div style={{ display: 'flex', gap: 10, margin: '14px 0 16px', flexWrap: 'wrap' }}>
-            {/* CONSUMO: siempre igual */}
-            <div style={{ border: `1px solid ${GRAY_LINE}`, borderRadius: 4, height: 30, display: 'flex', alignItems: 'center', padding: '0 16px', fontSize: 13, fontWeight: 700, letterSpacing: 0.5, background: '#fff', userSelect: 'none' }}>
-              CONSUMO
-            </div>
-
-            {/* BH: seleccionable */}
-            {[
-              { id: 'BELLO HORIZONTE', label: 'BELLO HORIZONTE', onStyle: { background: PINK_HI, color: PINK_TEXT, border: '1px solid #f4a0be' } },
-              { id: 'SAN RAMON',       label: 'SAN RAMON',       onStyle: { background: MINT_BG, color: MINT_TEXT, border: '1px solid #bfe0b4' } },
-            ].map(({ id, label, onStyle }) => {
-              const active = ubicSel === id
-              const blank  = ubicSel !== null && !active
-              return (
-                <button key={id} onClick={() => setUbicSel(active ? null : id)}
-                  style={{ borderRadius: 4, height: 30, display: 'flex', alignItems: 'center', padding: '0 16px', fontSize: 13, fontWeight: active ? 700 : 600, letterSpacing: 0.5, cursor: 'pointer', transition: 'all .15s', ...(active ? onStyle : blank ? { background: '#fff', color: '#ccc', border: '1px solid #eee' } : { background: '#fff', color: '#2b2731', border: `1px solid ${GRAY_LINE}` }) }}>
-                  {label}
-                </button>
-              )
-            })}
           </div>
 
           {/* ── PEDIDO ── */}

@@ -41,7 +41,7 @@ async function getLogo() {
 
 export async function printNota({
   folio, fecha, hora, cli, lugar, costo, tel,
-  ubicSel, prods, obs, pagos,
+  prods, obs, pagos,
   costoEntrega, totalGeneral, resta,
 }) {
   const logoSrc = await getLogo()
@@ -89,19 +89,6 @@ export async function printNota({
     '</tr>'
   ).join('')
 
-  // ── Tags de ubicación ───────────────────────────────────────
-  const tagBH = ubicSel === 'BELLO HORIZONTE'
-    ? '<span class="tag bh active">BELLO HORIZONTE</span>'
-    : ubicSel
-      ? '<span class="tag bh dim">BELLO HORIZONTE</span>'
-      : '<span class="tag bh">BELLO HORIZONTE</span>'
-
-  const tagSR = ubicSel === 'SAN RAMON'
-    ? '<span class="tag sr active">SAN RAMON</span>'
-    : ubicSel
-      ? '<span class="tag sr dim">SAN RAMON</span>'
-      : '<span class="tag sr">SAN RAMON</span>'
-
   // ── Bloque de contenido reutilizable para las dos copias ────
   const notaBody = `
   <div class="head">
@@ -143,12 +130,6 @@ export async function printNota({
       <td class="vl">${esc(tel)}</td>
     </tr>
   </table>
-
-  <div class="tags">
-    <span class="tag" style="background:#fff;color:#2b2731;">CONSUMO</span>
-    ${tagBH}
-    ${tagSR}
-  </div>
 
   <div>
     <div class="barhead">PEDIDO</div>
@@ -280,19 +261,6 @@ export async function printNota({
   .fields .lb{background:#e4e4e8;font-weight:700;padding:0 2mm;white-space:nowrap;width:1%;}
   .fields .vl{padding:0 2mm;}
   .fields .pk{background:#fbe0ea;}
-
-  /* ── Tags ── */
-  .tags{display:flex;gap:4px;}
-  .tag{
-    border:1px solid #c9c9d0;border-radius:4px;
-    height:5.5mm;display:inline-flex;align-items:center;
-    padding:0 2.5mm;font-size:7pt;font-weight:700;letter-spacing:.4px;
-  }
-  .tag.bh{color:#d9748f;}
-  .tag.bh.active{background:#fbe0ea;border-color:#f4a0be;font-weight:800;}
-  .tag.sr{background:#d9efd2;color:#5d8a49;border-color:#bfe0b4;}
-  .tag.sr.active{font-weight:800;outline:2px solid #5d8a49;outline-offset:1px;}
-  .tag.dim{background:#fff!important;color:#ccc!important;border-color:#eee!important;}
 
   /* ── Cabecera gris de sección ── */
   .barhead{

@@ -257,7 +257,6 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     lugar:        nota.lugarEntrega,
     costo:        nota.costoEntrega ? String(nota.costoEntrega) : '',
     tel:          nota.contacto,
-    ubicSel:      nota.ubicacion,
     prods:        (nota.productos || []).map(p => ({ cantidad: p.cantidad, descripcion: p.descripcion, precioU: p.precioU })),
     obs:          nota.observaciones || [],
     pagos:        (nota.pagos || []).map(p => ({ monto: p.monto, fecha: p.fecha, met: p.metodoPago })),
