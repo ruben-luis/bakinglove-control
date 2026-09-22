@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import './index.css'
 import { db, authReady } from './firebase'
 import {
-  collection, onSnapshot, query, where, getDocs,
+  collection, onSnapshot, query, where, getDocs, getDocsFromServer,
   doc, setDoc, updateDoc, deleteDoc, getDoc, runTransaction,
 } from 'firebase/firestore'
 import {
@@ -34,6 +34,7 @@ export default function App() {
   const [saldosSemana, setSaldosSemana] = useState([])
   const [pinAction,     setPinAction]    = useState(null)
   const [loading,       setLoading]      = useState(true)
+  const [serverSynced,  setServerSynced] = useState(false)
   const [editingNota,   setEditingNota]  = useState(null)
   const [balanceActual, setBalanceActual] = useState(null)
 
@@ -41,35 +42,54 @@ export default function App() {
   // Espera a que exista sesión (authReady) antes de suscribirse: las
   // reglas de Firestore exigen auth != null, así que suscribirse antes
   // provocaría errores de permission-denied.
+  //
+  // `loading` se apaga con el primer dato disponible (aunque venga de
+  // caché offline) para que la app abra rápido. `serverSynced` es
+  // distinto: solo se activa cuando Firestore CONFIRMA con el servidor
+  // que notas/gastos/sanramon_rows están al día (snap.metadata.fromCache
+  // === false). Es lo que debe usar cualquier cálculo que escriba datos
+  // (como el avance de semana), para no operar con un snapshot de
+  // caché parcial o desactualizado.
   useEffect(() => {
     let unsubNotas = () => {}, unsubGastos = () => {}, unsubSR = () => {}, unsubSaldos = () => {}
     let cancelled = false
     const loaded = { notas: false, gastos: false, sr: false }
+    const synced = { notas: false, gastos: false, sr: false }
     const check  = () => {
       if (loaded.notas && loaded.gastos && loaded.sr) setLoading(false)
+      if (synced.notas && synced.gastos && synced.sr) setServerSynced(true)
     }
 
     authReady.then(() => {
       if (cancelled) return
       unsubNotas = onSnapshot(
         collection(db, 'notas'),
+        { includeMetadataChanges: true },
         snap => {
           setNotas(snap.docs.map(d => d.data()))
-          loaded.notas = true; check()
+          loaded.notas = true
+          if (!snap.metadata.fromCache) synced.notas = true
+          check()
         }
       )
       unsubGastos = onSnapshot(
         collection(db, 'gastos'),
+        { includeMetadataChanges: true },
         snap => {
           setGastos(snap.docs.map(d => d.data()))
-          loaded.gastos = true; check()
+          loaded.gastos = true
+          if (!snap.metadata.fromCache) synced.gastos = true
+          check()
         }
       )
       unsubSR = onSnapshot(
         collection(db, 'sanramon_rows'),
+        { includeMetadataChanges: true },
         snap => {
           setSrRows(snap.docs.map(d => d.data()))
-          loaded.sr = true; check()
+          loaded.sr = true
+          if (!snap.metadata.fromCache) synced.sr = true
+          check()
         }
       )
       unsubSaldos = onSnapshot(collection(db, 'saldos_semana'), snap => {
@@ -103,7 +123,7 @@ export default function App() {
   // frescos, ve que ya quedó al día y no hace nada. Así nunca se
   // puede sumar la misma semana dos veces, ni retroceder weekStart.
   useEffect(() => {
-    if (loading) return
+    if (!serverSynced) return
     const weekStart = getCurrentMonday()
     const balRef = doc(db, 'config', 'balance_actual')
 
@@ -124,7 +144,7 @@ export default function App() {
       // cuando alguien ya verificó que la semana está completa y
       // cuadrada.
     }).catch(console.error)
-  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [serverSynced]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // ── Aplica un delta de balance de forma atómica (increment) ──
@@ -138,10 +158,23 @@ export default function App() {
   }
 
   // ── Guarda un corte manual (congelado) con los datos de hoy ──
+  // Lee notas/gastos/sanramon_rows directo del servidor (no del estado
+  // en memoria, que puede venir de caché offline) para que un corte
+  // guardado siempre refleje lo que Firestore tiene confirmado en ese
+  // instante. Si no hay conexión, getDocsFromServer falla y el corte
+  // no se guarda — mejor eso que congelar datos incompletos.
   const saveManualCorte = async () => {
     const now = new Date()
     const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const snapshot = computeBalanceFull(notas, gastos, srRows, todayISO)
+    const [notasSnap, gastosSnap, srSnap] = await Promise.all([
+      getDocsFromServer(collection(db, 'notas')),
+      getDocsFromServer(collection(db, 'gastos')),
+      getDocsFromServer(collection(db, 'sanramon_rows')),
+    ])
+    const freshNotas  = notasSnap.docs.map(d => d.data())
+    const freshGastos = gastosSnap.docs.map(d => d.data())
+    const freshSrRows = srSnap.docs.map(d => d.data())
+    const snapshot = computeBalanceFull(freshNotas, freshGastos, freshSrRows, todayISO)
     await setDoc(doc(db, 'cortes_semana', `manual_${todayISO}_${Date.now()}`), {
       ...snapshot, tipo: 'manual', savedAt: new Date().toISOString(),
     })

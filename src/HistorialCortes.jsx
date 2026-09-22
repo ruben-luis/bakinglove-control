@@ -31,6 +31,9 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
     try {
       await onGuardarCorte()
       await load()
+    } catch (err) {
+      console.error(err)
+      window.alert('No se pudo guardar el corte. Revisa tu conexión a internet e intenta de nuevo.')
     } finally {
       setGuardando(false)
     }
