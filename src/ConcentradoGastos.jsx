@@ -1,6 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Trash2, Sheet } from 'lucide-react'
 import { exportarExcel } from './exportExcel'
+import { db } from './firebase'
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { gastosBalanceDelta, mergeDeltas, isZeroDelta } from './balance'
+import { toIncrements } from './balanceSync'
 
 const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DIAS    = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
@@ -121,11 +125,30 @@ function SaldoRow({ label, value, last = false }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onSave, onBack }) {
+export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
   const now = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [saved,      setSaved]      = useState(false)
   const [filterDate, setFilterDate] = useState(todayISO)
+
+  // Historial COMPLETO de gastos y sanramon_rows, propio de esta pantalla —
+  // independiente del listener acotado de App.jsx (ese solo alimenta el
+  // Dashboard). Necesario para no perder/mal-calcular meses fuera de esa
+  // ventana al guardar, y para el acumulado de salidas SR.
+  const [gastosFull, setGastosFull] = useState([])
+  const [srRowsFull, setSrRowsFull] = useState([])
+  const [gastosReady, setGastosReady] = useState(false)
+
+  useEffect(() => {
+    const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => {
+      setGastosFull(snap.docs.map(d => d.data()))
+      setGastosReady(true)
+    })
+    const unsubSR = onSnapshot(collection(db, 'sanramon_rows'), snap => {
+      setSrRowsFull(snap.docs.map(d => d.data()))
+    })
+    return () => { unsubGastos(); unsubSR() }
+  }, [])
 
   const week = getWeekRange(refDate)
 
@@ -150,23 +173,26 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onS
     return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]} ${d.getFullYear()}`
   }
 
+  const esDelMes = (g, date) => {
+    const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
+    if (!f) return false
+    const d = new Date(f)
+    return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear()
+  }
+
   // Gastos del mes visible — usa g.fecha (no g.createdAt)
   const gastosMes = useMemo(() =>
-    (gastos || []).filter(g => {
-      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
-      if (!f) return false
-      const d = new Date(f)
-      return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
-    }),
-  [gastos, refDate])
+    gastosFull.filter(g => esDelMes(g, refDate)),
+  [gastosFull, refDate])
 
   // Filas locales editables (solo del mes, sin padding vacío)
-  const [rows, setRows] = useState(() => gastosMes.length > 0 ? [...gastosMes] : [])
+  const [rows, setRows] = useState([])
 
-  // Cuando cambia el mes, recarga las filas
+  // Cuando cambia el mes (o cuando llega el primer snapshot de Firestore),
+  // recarga las filas desde gastosMes.
   const mesKey = `${refDate.getFullYear()}-${refDate.getMonth()}`
-  const [lastMesKey, setLastMesKey] = useState(mesKey)
-  if (mesKey !== lastMesKey) {
+  const [lastMesKey, setLastMesKey] = useState(null)
+  if (gastosReady && mesKey !== lastMesKey) {
     setLastMesKey(mesKey)
     setRows(gastosMes.length > 0 ? [...gastosMes] : [])
   }
@@ -189,20 +215,39 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onS
   const deleteRow = (i) => setRows(prev => prev.filter((_, idx) => idx !== i))
 
   const guardar = () => {
-    const filled = rows.filter(r => r.concepto || r.monto)
-    const otrosMeses = (gastos || []).filter(g => {
-      const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
-      if (!f) return true
-      const d = new Date(f)
-      return !(d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear())
+    const filled = rows.filter(r => r.concepto || r.monto).map(r => {
+      const monto = parseFloat(r.monto)
+      return { ...r, monto: isNaN(monto) ? 0 : monto }
     })
-    onSave([...otrosMeses, ...filled])
+    // Solo se toca el mes visible: el resto del historial (gastosFull) ni
+    // se lee ni se reescribe, igual que SanRamonView.persist() solo toca
+    // el día editado.
+    const prevDelMes = gastosFull.filter(g => esDelMes(g, refDate))
+    const toDelete = prevDelMes.filter(g => !filled.find(f => f.id === g.id))
+
+    toDelete.forEach(g => deleteDoc(doc(db, 'gastos', g.id)))
+    filled.forEach(g => setDoc(doc(db, 'gastos', g.id), g))
+
+    if (weekStart) {
+      const deltas = [
+        ...toDelete.map(g => gastosBalanceDelta([g], [], weekStart)),
+        ...filled.map(g => {
+          const anterior = prevDelMes.find(p => p.id === g.id)
+          return gastosBalanceDelta(anterior ? [anterior] : [], [g], weekStart)
+        }),
+      ]
+      const delta = mergeDeltas(...deltas)
+      if (!isZeroDelta(delta)) {
+        updateDoc(doc(db, 'config', 'balance_actual'), toIncrements(delta)).catch(console.error)
+      }
+    }
+
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
   // SR salidas del mes y del día seleccionado
-  const srSalidasMes = (srRows || []).filter(r => {
+  const srSalidasMes = srRowsFull.filter(r => {
     if (r.tipo !== 'salida') return false
     const d = new Date(r.fecha + 'T12:00:00')
     return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
@@ -259,7 +304,7 @@ export default function ConcentradoGastos({ notas = [], gastos, srRows = [], onS
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
-            onClick={() => exportarExcel(notas, gastos, srRows)}
+            onClick={() => exportarExcel(notas, gastosFull, srRowsFull)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 14px', borderRadius: 12,

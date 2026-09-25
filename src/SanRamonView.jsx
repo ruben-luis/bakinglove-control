@@ -70,7 +70,7 @@ const CHECK = (
   </svg>
 )
 
-export default function SanRamonView({ onBack, srRows = [], weekStart }) {
+export default function SanRamonView({ onBack, weekStart }) {
   const allRowsRef = useRef([])
   const saldosRef  = useRef({})
 
@@ -81,20 +81,28 @@ export default function SanRamonView({ onBack, srRows = [], weekStart }) {
   const [dirty,      setDirty]      = useState(false)
   const [cerrada,    setCerrada]    = useState(false)
 
-  // Carga inicial desde Firestore
+  // Carga inicial desde Firestore — historial COMPLETO de sanramon_rows,
+  // independiente de cualquier acotamiento que tenga el listener de
+  // App.jsx (ese solo alimenta el Dashboard). El saldo inicial depende de
+  // poder sumar desde el último "Cerrar semana", que puede ser más viejo
+  // que esa ventana.
   useEffect(() => {
-    getDocs(collection(db, 'sanramon_saldos')).then(saldosSnap => {
+    Promise.all([
+      getDocs(collection(db, 'sanramon_saldos')),
+      getDocs(collection(db, 'sanramon_rows')),
+    ]).then(([saldosSnap, rowsSnap]) => {
       const saldos = {}
       saldosSnap.docs.forEach(d => { saldos[d.id] = d.data().saldo })
-      allRowsRef.current = [...srRows]
+      const rows = rowsSnap.docs.map(d => d.data())
+      allRowsRef.current = rows
       saldosRef.current  = saldos
       const today = todayISO()
-      setDayRows(padRows(srRows.filter(r => r.fecha === today), today))
-      const ini = computeSaldoInicial(today, saldos, srRows)
+      setDayRows(padRows(rows.filter(r => r.fecha === today), today))
+      const ini = computeSaldoInicial(today, saldos, rows)
       setSaldoIni(ini != null ? String(ini) : '0.00')
       setReady(true)
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   function persist(rows, fecha) {
     const sanitize = r => {

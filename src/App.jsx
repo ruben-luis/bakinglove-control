@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore'
 import {
   getCurrentMonday, rolloverBalance, computeBalanceFull,
-  notaBalanceDelta, gastosBalanceDelta, isZeroDelta, addDelta,
+  notaBalanceDelta, isZeroDelta, addDelta,
 } from './balance'
 import { toIncrements } from './balanceSync'
 import Dashboard from './Dashboard'
@@ -20,10 +20,17 @@ import SanRamonView from './SanRamonView'
 import HistorialCortes from './HistorialCortes'
 import PinModal, { savePin } from './PinModal'
 
-function shallowEqual(a, b) {
-  const keysA = Object.keys(a), keysB = Object.keys(b)
-  if (keysA.length !== keysB.length) return false
-  return keysA.every(k => a[k] === b[k])
+// Ventana de retención para los listeners "siempre activos" de gastos y
+// sanramon_rows: Dashboard (la pantalla abierta todo el día) solo necesita
+// "esta semana" + el balance pre-computado, no el historial completo. Las
+// pantallas que sí necesitan historial completo (ConcentradoGastos,
+// ConcentradoIngresos, SanRamonView) tienen sus propios listeners/lecturas
+// de historial completo, independientes de este acotamiento.
+const RETENCION_SEMANAS = 10
+function getCutoffISO() {
+  const d = new Date()
+  d.setDate(d.getDate() - RETENCION_SEMANAS * 7)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export default function App() {
@@ -72,8 +79,9 @@ export default function App() {
           check()
         }
       )
+      const cutoffISO = getCutoffISO()
       unsubGastos = onSnapshot(
-        collection(db, 'gastos'),
+        query(collection(db, 'gastos'), where('fecha', '>=', cutoffISO)),
         { includeMetadataChanges: true },
         snap => {
           setGastos(snap.docs.map(d => d.data()))
@@ -83,7 +91,7 @@ export default function App() {
         }
       )
       unsubSR = onSnapshot(
-        collection(db, 'sanramon_rows'),
+        query(collection(db, 'sanramon_rows'), where('fecha', '>=', cutoffISO)),
         { includeMetadataChanges: true },
         snap => {
           setSrRows(snap.docs.map(d => d.data()))
@@ -127,22 +135,35 @@ export default function App() {
     const weekStart = getCurrentMonday()
     const balRef = doc(db, 'config', 'balance_actual')
 
-    runTransaction(db, async (tx) => {
-      const snap = await tx.get(balRef)
-      if (!snap.exists()) {
-        tx.set(balRef, computeBalanceFull(notas, gastos, srRows, weekStart))
-        return
-      }
-      const saved = snap.data()
-      if (saved.weekStart >= weekStart) return // ya está al día
-      const rolled = rolloverBalance(saved, notas, gastos, srRows, weekStart)
-      tx.set(balRef, rolled)
-      // El corte de la semana NO se archiva aquí: este avance puede
-      // dispararse a cualquier hora (ej. la madrugada del lunes) antes
-      // de que se haya capturado toda la información de la semana que
-      // cierra. El corte se guarda a mano desde Historial de Cortes,
-      // cuando alguien ya verificó que la semana está completa y
-      // cuadrada.
+    // gastos/sanramon_rows en memoria están acotados a las últimas
+    // RETENCION_SEMANAS semanas (ver listeners arriba). El bootstrap y el
+    // rollover necesitan el historial COMPLETO, así que se leen aparte
+    // directo del servidor — corre una sola vez por carga de app, así que
+    // no reintroduce el costo de un listener siempre activo.
+    Promise.all([
+      getDocsFromServer(collection(db, 'gastos')),
+      getDocsFromServer(collection(db, 'sanramon_rows')),
+    ]).then(([gastosSnap, srSnap]) => {
+      const gastosFull = gastosSnap.docs.map(d => d.data())
+      const srRowsFull = srSnap.docs.map(d => d.data())
+
+      return runTransaction(db, async (tx) => {
+        const snap = await tx.get(balRef)
+        if (!snap.exists()) {
+          tx.set(balRef, computeBalanceFull(notas, gastosFull, srRowsFull, weekStart))
+          return
+        }
+        const saved = snap.data()
+        if (saved.weekStart >= weekStart) return // ya está al día
+        const rolled = rolloverBalance(saved, notas, gastosFull, srRowsFull, weekStart)
+        tx.set(balRef, rolled)
+        // El corte de la semana NO se archiva aquí: este avance puede
+        // dispararse a cualquier hora (ej. la madrugada del lunes) antes
+        // de que se haya capturado toda la información de la semana que
+        // cierra. El corte se guarda a mano desde Historial de Cortes,
+        // cuando alguien ya verificó que la semana está completa y
+        // cuadrada.
+      })
     }).catch(console.error)
   }, [serverSynced]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -251,24 +272,6 @@ export default function App() {
     await deleteDoc(doc(db, 'notas', notaId))
   }
 
-  // ── CRUD gastos ───────────────────────────────────────────────
-  const handleSaveGastos = (updatedGastos) => {
-    const oldById = new Map(gastos.map(g => [g.id, g]))
-    const newIds = new Set(updatedGastos.map(g => g.id))
-    const deletes = [...oldById.keys()].filter(id => !newIds.has(id))
-    deletes.forEach(id => deleteDoc(doc(db, 'gastos', id)))
-    updatedGastos.forEach(g => {
-      const monto = parseFloat(g.monto)
-      const normalizado = { ...g, monto: isNaN(monto) ? 0 : monto }
-      const anterior = oldById.get(g.id)
-      if (anterior && shallowEqual(anterior, normalizado)) return // sin cambios: no reescribir
-      setDoc(doc(db, 'gastos', g.id), normalizado)
-    })
-    if (balanceActual) {
-      applyBalanceDelta(gastosBalanceDelta(gastos, updatedGastos, balanceActual.weekStart))
-    }
-  }
-
   // ── Navegación / PIN ──────────────────────────────────────────
   function navigate(dest) {
     if (dest === 'concentrado' || dest === 'gastos' || dest === 'cortes') {
@@ -320,13 +323,13 @@ export default function App() {
   } else if (view === 'historial') {
     content = <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
   } else if (view === 'concentrado') {
-    content = <ConcentradoIngresos notas={notas} gastos={gastos} srRows={srRows} saldosSemana={saldosSemana} balanceActual={balanceActual} onBack={() => setView('dashboard')} />
+    content = <ConcentradoIngresos notas={notas} saldosSemana={saldosSemana} balanceActual={balanceActual} onBack={() => setView('dashboard')} />
   } else if (view === 'gastos') {
-    content = <ConcentradoGastos notas={notas} gastos={gastos} srRows={srRows} onSave={handleSaveGastos} onBack={() => setView('dashboard')} />
+    content = <ConcentradoGastos notas={notas} weekStart={balanceActual?.weekStart} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} onDeleteNota={handleDeleteNota} />
   } else if (view === 'sanramon') {
-    content = <SanRamonView onBack={() => setView('dashboard')} srRows={srRows} weekStart={balanceActual?.weekStart} />
+    content = <SanRamonView onBack={() => setView('dashboard')} weekStart={balanceActual?.weekStart} />
   } else if (view === 'cortes') {
     content = <HistorialCortes onBack={() => setView('dashboard')} onGuardarCorte={saveManualCorte} saldosSemana={saldosSemana} />
   } else {

@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, FileDown, Sheet } from 'lucide-react'
 import { printNota } from './printNota'
 import { exportarExcel } from './exportExcel'
+import { db } from './firebase'
+import { collection, onSnapshot } from 'firebase/firestore'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DIAS  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
@@ -73,8 +75,20 @@ function getMondayISO(date) {
   return toISO(d)
 }
 
-export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], saldosSemana = [], balanceActual = null, onBack }) {
+export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceActual = null, onBack }) {
   const now  = new Date()
+
+  // Historial COMPLETO de gastos y sanramon_rows, propio de esta pantalla
+  // (solo lectura) — independiente del listener acotado de App.jsx, que
+  // solo alimenta el Dashboard con "esta semana".
+  const [gastosFull, setGastosFull] = useState([])
+  const [srRowsFull, setSrRowsFull] = useState([])
+  useEffect(() => {
+    const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => setGastosFull(snap.docs.map(d => d.data())))
+    const unsubSR = onSnapshot(collection(db, 'sanramon_rows'), snap => setSrRowsFull(snap.docs.map(d => d.data())))
+    return () => { unsubGastos(); unsubSR() }
+  }, [])
+
   const [refDate,    setRefDate]    = useState(now)
   const [filterDate, setFilterDate] = useState(todayISO)
   const week = getWeekRange(refDate)
@@ -95,7 +109,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
   })
   const notasDia   = notasMes.filter(n => { const d = new Date(n.createdAt); return localISO(d) === filterDate })
-  const srVentasDia = (srRows || []).filter(r => r.tipo === 'venta' && r.fecha === filterDate)
+  const srVentasDia = srRowsFull.filter(r => r.tipo === 'venta' && r.fecha === filterDate)
 
   // Cálculo dinámico: saldo inicial (semilla + historial) + acumulado semanal
   const { saldoInicialEfectivo, saldoInicialBancosDay, saldoInicialBancosJorge, acum, gastoAcum } = useMemo(() => {
@@ -132,7 +146,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       prevSrBancoDayS       = balanceActual.prevSrBancoDayS
       prevSrBancoJorgeS     = balanceActual.prevSrBancoJorgeS
     } else {
-      // Semana anterior: usar datos en memoria (limitado a ventana disponible)
+      // Semana anterior: usar historial completo (gastosFull/srRowsFull)
       notas.forEach(n => (n.pagos||[]).forEach(p => {
         const pf = p.fecha || n.createdAt
         if (!beforeWk(pf)) return
@@ -142,7 +156,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
         if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay += m
         if (p.metodoPago === 'Banco JORGE') prevBklBancoJorge += m
       }))
-      gastos.forEach(g => {
+      gastosFull.forEach(g => {
         const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
         if (!beforeWk(f)) return
         const m = parseFloat(g.monto) || 0
@@ -150,7 +164,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
         if (g.formaPago === 'Banco Day' || g.formaPago === 'Tarjeta' || g.formaPago === 'Transferencia') prevBklBancoGast      += m
         if (g.formaPago === 'Banco JORGE')                                                               prevBklBancoJorgeGast += m
       })
-      srRows.forEach(r => {
+      srRowsFull.forEach(r => {
         if (!r.fecha || !beforeWk(r.fecha)) return
         const m = parseFloat(r.precio) || 0
         if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                            prevSrEfV         += m
@@ -172,7 +186,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
     notas.forEach(n => (n.pagos||[]).forEach(p => {
       const pf = p.fecha || n.createdAt
       if (!inWk(pf)) return
-      if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
+      if (p.sucursal === 'SR') return  // ya está en srRowsFull como fromNota
       const m = parseFloat(p.monto) || 0
       if (p.metodoPago === 'Terminal')                             acum.Terminal       += m
       if (p.metodoPago === 'Transferencia')                        acum.Transferencia  += m
@@ -180,7 +194,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       if (p.metodoPago === 'Banco Day')                            acum.Terminal       += m  // legacy
       if (p.metodoPago === 'Banco JORGE')                          acum['Banco JORGE'] += m
     }))
-    srRows.forEach(r => {
+    srRowsFull.forEach(r => {
       if (r.tipo !== 'venta' || !r.fecha || !inWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
       if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') acum.Terminal       += m
@@ -191,7 +205,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
 
     // Acumulado gastos de ESTA semana
     const gastoAcum = { Terminal: 0, Transferencia: 0, 'Banco JORGE': 0, Efectivo: 0 }
-    gastos.forEach(g => {
+    gastosFull.forEach(g => {
       const f = g.fecha ? g.fecha + 'T12:00:00' : g.createdAt
       if (!inWk(f)) return
       const m = parseFloat(g.monto) || 0
@@ -200,7 +214,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       if (g.formaPago === 'Transferencia')                                                         gastoAcum.Transferencia  += m
       if (g.formaPago === 'Efectivo')                                                              gastoAcum.Efectivo       += m
     })
-    srRows.forEach(r => {
+    srRowsFull.forEach(r => {
       if (r.tipo !== 'salida' || !r.fecha || !inWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
       if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') gastoAcum.Terminal      += m
@@ -215,7 +229,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
       saldoInicialBancosJorge: saldoBkJorge,
       acum, gastoAcum,
     }
-  }, [notas, gastos, srRows, saldosSemana, refDate, balanceActual])
+  }, [notas, gastosFull, srRowsFull, saldosSemana, refDate, balanceActual])
 
   // Totales derivados
   const ingBancosDay    = acum.Terminal + acum.Transferencia
@@ -279,7 +293,7 @@ export default function ConcentradoIngresos({ notas, gastos = [], srRows = [], s
           <span className="font-display font-bold text-ink text-sm" style={{ whiteSpace: 'nowrap' }}>Concentrado de Ingresos</span>
         </div>
         <button
-          onClick={() => exportarExcel(notas, gastos, srRows)}
+          onClick={() => exportarExcel(notas, gastosFull, srRowsFull)}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 14px', borderRadius: 12,
