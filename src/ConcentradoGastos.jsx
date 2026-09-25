@@ -129,6 +129,7 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
   const now = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [saved,      setSaved]      = useState(false)
+  const [saveError,  setSaveError]  = useState(null)
   const [filterDate, setFilterDate] = useState(todayISO)
 
   // Historial COMPLETO de gastos y sanramon_rows, propio de esta pantalla —
@@ -214,7 +215,7 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
 
   const deleteRow = (i) => setRows(prev => prev.filter((_, idx) => idx !== i))
 
-  const guardar = () => {
+  const guardar = async () => {
     const filled = rows.filter(r => r.concepto || r.monto).map(r => {
       const monto = parseFloat(r.monto)
       return { ...r, monto: isNaN(monto) ? 0 : monto }
@@ -225,25 +226,38 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
     const prevDelMes = gastosFull.filter(g => esDelMes(g, refDate))
     const toDelete = prevDelMes.filter(g => !filled.find(f => f.id === g.id))
 
-    toDelete.forEach(g => deleteDoc(doc(db, 'gastos', g.id)))
-    filled.forEach(g => setDoc(doc(db, 'gastos', g.id), g))
+    try {
+      // Los escribe con Promise.all (no fire-and-forget): si el token de
+      // NIP recién emitido aún no se propagó a la conexión de Firestore,
+      // el servidor rechaza el write (PERMISSION_DENIED) aunque la caché
+      // local optimista lo dé por bueno — hay que esperarlo y reportar
+      // el error en vez de asumir éxito.
+      await Promise.all([
+        ...toDelete.map(g => deleteDoc(doc(db, 'gastos', g.id))),
+        ...filled.map(g => setDoc(doc(db, 'gastos', g.id), g)),
+      ])
 
-    if (weekStart) {
-      const deltas = [
-        ...toDelete.map(g => gastosBalanceDelta([g], [], weekStart)),
-        ...filled.map(g => {
-          const anterior = prevDelMes.find(p => p.id === g.id)
-          return gastosBalanceDelta(anterior ? [anterior] : [], [g], weekStart)
-        }),
-      ]
-      const delta = mergeDeltas(...deltas)
-      if (!isZeroDelta(delta)) {
-        updateDoc(doc(db, 'config', 'balance_actual'), toIncrements(delta)).catch(console.error)
+      if (weekStart) {
+        const deltas = [
+          ...toDelete.map(g => gastosBalanceDelta([g], [], weekStart)),
+          ...filled.map(g => {
+            const anterior = prevDelMes.find(p => p.id === g.id)
+            return gastosBalanceDelta(anterior ? [anterior] : [], [g], weekStart)
+          }),
+        ]
+        const delta = mergeDeltas(...deltas)
+        if (!isZeroDelta(delta)) {
+          await updateDoc(doc(db, 'config', 'balance_actual'), toIncrements(delta))
+        }
       }
-    }
 
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+      setSaveError(null)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      console.error(err)
+      setSaveError('No se pudo guardar. Espera unos segundos e intenta de nuevo.')
+    }
   }
 
   // SR salidas del mes y del día seleccionado
@@ -321,11 +335,17 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
             <Sheet size={14} strokeWidth={2.5} />
             Excel
           </button>
-          <button onClick={guardar} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${saved ? 'bg-green-600 text-white' : 'bg-[#1f2b5e] text-white'}`}>
-            {saved ? '✓ Guardado' : 'Guardar'}
+          <button onClick={guardar} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${saved ? 'bg-green-600 text-white' : saveError ? 'bg-red-600 text-white' : 'bg-[#1f2b5e] text-white'}`}>
+            {saved ? '✓ Guardado' : saveError ? 'Reintentar' : 'Guardar'}
           </button>
         </div>
       </div>
+
+      {saveError && (
+        <div className="max-w-2xl mx-auto px-4 -mt-1 mb-1">
+          <p className="text-red-600 text-[11px] font-semibold text-right">{saveError}</p>
+        </div>
+      )}
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-5 space-y-4">
 
