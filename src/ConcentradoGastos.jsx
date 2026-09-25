@@ -138,6 +138,7 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
   // ventana al guardar, y para el acumulado de salidas SR.
   const [gastosFull, setGastosFull] = useState([])
   const [srRowsFull, setSrRowsFull] = useState([])
+  const [cdjRowsFull, setCdjRowsFull] = useState([])
   const [gastosReady, setGastosReady] = useState(false)
 
   useEffect(() => {
@@ -148,7 +149,10 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
     const unsubSR = onSnapshot(collection(db, 'sanramon_rows'), snap => {
       setSrRowsFull(snap.docs.map(d => d.data()))
     })
-    return () => { unsubGastos(); unsubSR() }
+    const unsubCDJ = onSnapshot(collection(db, 'cdjudicial_rows'), snap => {
+      setCdjRowsFull(snap.docs.map(d => d.data()))
+    })
+    return () => { unsubGastos(); unsubSR(); unsubCDJ() }
   }, [])
 
   const week = getWeekRange(refDate)
@@ -268,6 +272,14 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
   })
   const srSalidasDia = srSalidasMes.filter(r => r.fecha === filterDate)
 
+  // CDJ salidas del mes y del día seleccionado
+  const cdjSalidasMes = cdjRowsFull.filter(r => {
+    if (r.tipo !== 'salida') return false
+    const d = new Date(r.fecha + 'T12:00:00')
+    return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
+  })
+  const cdjSalidasDia = cdjSalidasMes.filter(r => r.fecha === filterDate)
+
   // Acumulados — solo la semana seleccionada
   const acumWStart = (() => {
     const tmp = new Date(refDate); const dow = tmp.getDay()
@@ -287,6 +299,14 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
     if (r.categoria && acumCat[r.categoria]  !== undefined) acumCat[r.categoria]  += m
   })
   srSalidasMes.forEach(r => {
+    if (!inSelWeek(r.fecha)) return
+    const m = parseFloat(r.precio) || 0
+    if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') acumPago.Terminal       += m
+    else if (r.metodo === 'Transferencia')                                          acumPago.Transferencia  += m
+    else if (r.metodo === 'Banco JORGE')                     acumPago['Banco JORGE'] += m
+    else if (r.metodo === 'Efectivo')                        acumPago.Efectivo       += m
+  })
+  cdjSalidasMes.forEach(r => {
     if (!inSelWeek(r.fecha)) return
     const m = parseFloat(r.precio) || 0
     if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') acumPago.Terminal       += m
@@ -318,7 +338,7 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
-            onClick={() => exportarExcel(notas, gastosFull, srRowsFull)}
+            onClick={() => exportarExcel(notas, gastosFull, srRowsFull, cdjRowsFull)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 14px', borderRadius: 12,
@@ -404,7 +424,7 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
                 </tr>
               </thead>
               <tbody>
-                {displayRows.length === 0 && srSalidasDia.length === 0 ? (
+                {displayRows.length === 0 && srSalidasDia.length === 0 && cdjSalidasDia.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ textAlign: 'center', color: '#bbb', fontSize: 11, padding: 20 }}>
                       Sin gastos para este día
@@ -464,6 +484,29 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
                       <span style={{ fontSize: 11, color: '#d9748f', fontWeight: 700 }}>{r.metodo || '—'}</span>
                     </td>
                     <td style={{ ...tdBase, padding: '0 8px', fontSize: 11, color: '#888' }}>San Ramón</td>
+                    <td style={{ ...tdBase, textAlign: 'center', color: '#ddd', fontSize: 10 }}>—</td>
+                  </tr>
+                ))}
+                {/* Filas CD Judicial (solo lectura) */}
+                {cdjSalidasDia.map((r, i) => (
+                  <tr key={r.id} style={{ background: 'rgba(233,224,246,.15)' }}>
+                    <td style={{ ...tdBase, textAlign: 'center', fontSize: 10, color: '#aaa', fontWeight: 600 }}>
+                      {displayRows.length + srSalidasDia.length + i + 1}
+                    </td>
+                    <td style={{ ...tdBase, padding: '0 6px', fontSize: 11, color: '#1a1a22' }}>{r.fecha}</td>
+                    <td style={{ ...tdBase, padding: '0 8px', fontSize: 12, color: '#1a1a22' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ padding: '1px 7px', borderRadius: 7, background: '#E9E0F6', color: '#6b5b95', fontSize: 9, fontWeight: 800, letterSpacing: 0.4, flexShrink: 0 }}>CDJ</span>
+                        {r.producto || '—'}
+                      </div>
+                    </td>
+                    <td style={{ ...tdBase, padding: '0 8px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#1a1a22' }}>
+                      {r.precio ? `$${parseFloat(r.precio).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                    </td>
+                    <td style={{ ...tdBase, padding: '0 8px', background: 'rgba(233,224,246,.25)' }} data-colored="1">
+                      <span style={{ fontSize: 11, color: '#6b5b95', fontWeight: 700 }}>{r.metodo || '—'}</span>
+                    </td>
+                    <td style={{ ...tdBase, padding: '0 8px', fontSize: 11, color: '#888' }}>CD Judicial</td>
                     <td style={{ ...tdBase, textAlign: 'center', color: '#ddd', fontSize: 10 }}>—</td>
                   </tr>
                 ))}

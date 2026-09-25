@@ -5,9 +5,10 @@ import {
   Plus, Pencil, ArrowRight, Calendar,
   CakeSlice, Cookie, Candy, IceCreamCone,
   Croissant, Cherry, Cake, Coffee, ClipboardList,
-  Lock, KeyRound, Store, Archive,
+  Lock, KeyRound, Store, Archive, Landmark,
 } from 'lucide-react'
 import PinModal from './PinModal'
+import { isCdjLive } from './cdjLaunch'
 
 // ═══════════════════════════════════════════════════════════════
 // ÍCONOS FLOTANTES DE FONDO
@@ -209,15 +210,16 @@ function SectionLabel({ children, color = 'rgba(255,255,255,.35)' }) {
   )
 }
 
-function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], balanceActual = null, unlocked = false, onUnlockClick }) {
+function CorteCard({ notas, gastos, srRows = [], cdjRows = [], saldosSemana = [], balanceActual = null, unlocked = false, onUnlockClick }) {
   const [rainKey, setRainKey] = useState(0)
 
   const {
-    saldoInicioEfBkl, saldoInicioEfSr, seedBancos, seedBancosJorge,
-    bklBancosAcumDay, bklBancosAcumJorge, srBancosAcumDay, srBancosAcumJorge,
+    saldoInicioEfBkl, saldoInicioEfSr, saldoInicioEfCdj, seedBancos, seedBancosJorge,
+    bklBancosAcumDay, bklBancosAcumJorge, srBancosAcumDay, srBancosAcumJorge, cdjBancosAcumDay, cdjBancosAcumJorge,
     bklCashIng, bklBankIngDay, bklBankIngJorge, bklCashGast, bklBankGast,
     srCashVentas, srBankVentasDay, srBankVentasJorge, srCashSalidas, srBankSalidasDay, srBankSalidasJorge,
-    bklGanaste, bklGastaste, srVentas, srSalidas,
+    cdjCashVentas, cdjBankVentasDay, cdjBankVentasJorge, cdjCashSalidas, cdjBankSalidasDay, cdjBankSalidasJorge,
+    bklGanaste, bklGastaste, srVentas, srSalidas, cdjVentas, cdjSalidas,
   } = useMemo(() => {
     const { mon, sun } = thisWeekRange()
 
@@ -245,21 +247,29 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], balanceActua
     const prevSrEfS             = balanceActual?.prevSrEfS             ?? 0
     const prevSrBancoDayS       = balanceActual?.prevSrBancoDayS       ?? 0
     const prevSrBancoJorgeS     = balanceActual?.prevSrBancoJorgeS     ?? 0
+    const prevCdjEfV            = balanceActual?.prevCdjEfV            ?? 0
+    const prevCdjBancoDayV      = balanceActual?.prevCdjBancoDayV      ?? 0
+    const prevCdjBancoJorgeV    = balanceActual?.prevCdjBancoJorgeV    ?? 0
+    const prevCdjEfS            = balanceActual?.prevCdjEfS            ?? 0
+    const prevCdjBancoDayS      = balanceActual?.prevCdjBancoDayS      ?? 0
+    const prevCdjBancoJorgeS    = balanceActual?.prevCdjBancoJorgeS    ?? 0
 
     const saldoInicioEfBkl = (seed.efectivoBkl || 0) + prevBklEf  - prevBklEfGast
     const saldoInicioEfSr  = (seed.efectivoSr  || 0) + prevSrEfV  - prevSrEfS
+    const saldoInicioEfCdj = (seed.efectivoCdj || 0) + prevCdjEfV - prevCdjEfS
     const seedBancos       = seed.bancos || 0
     const seedBancosJorge  = seed.bancosJorge || 0
 
     // ── Movimientos de ESTA semana ─────────────────────────────────
     let bklCashIng = 0, bklBankIngDay = 0, bklBankIngJorge = 0, bklCashGast = 0, bklBankGast = 0, bklBankGastJorge = 0
     let srCashVentas = 0, srBankVentasDay = 0, srBankVentasJorge = 0, srCashSalidas = 0, srBankSalidasDay = 0, srBankSalidasJorge = 0
+    let cdjCashVentas = 0, cdjBankVentasDay = 0, cdjBankVentasJorge = 0, cdjCashSalidas = 0, cdjBankSalidasDay = 0, cdjBankSalidasJorge = 0
 
     notas.forEach(n =>
       (n.pagos || []).forEach(p => {
         const pf = p.fecha || n.createdAt
         if (!inThisWeek(pf)) return
-        if (p.sucursal === 'SR') return  // ya está en srRows como fromNota
+        if (p.sucursal === 'SR' || p.sucursal === 'CDJ') return  // ya está en srRows/cdjRows como fromNota
         const m = parseFloat(p.monto) || 0
         if (p.metodoPago === 'Efectivo')                                                                    bklCashIng      += m
         if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') bklBankIngDay   += m
@@ -287,36 +297,55 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], balanceActua
       if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                   srBankSalidasJorge += m
     })
 
+    cdjRows.forEach(r => {
+      if (!r.fecha || !inThisWeek(r.fecha)) return
+      const m = parseFloat(r.precio) || 0
+      if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                       cdjCashVentas       += m
+      if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) cdjBankVentasDay  += m
+      if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                          cdjBankVentasJorge  += m
+      if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                              cdjCashSalidas      += m
+      if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) cdjBankSalidasDay += m
+      if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                   cdjBankSalidasJorge += m
+    })
+
     // Bancos acumulados por banco — separados
     const bklBancosAcumDay   = prevBklBancoDay   + bklBankIngDay   - prevBklBancoGast - bklBankGast
     const bklBancosAcumJorge = prevBklBancoJorge + bklBankIngJorge - prevBklBancoJorgeGast - bklBankGastJorge
     const srBancosAcumDay    = prevSrBancoDayV   + srBankVentasDay  - prevSrBancoDayS  - srBankSalidasDay
     const srBancosAcumJorge  = prevSrBancoJorgeV + srBankVentasJorge - prevSrBancoJorgeS - srBankSalidasJorge
+    const cdjBancosAcumDay   = prevCdjBancoDayV  + cdjBankVentasDay  - prevCdjBancoDayS  - cdjBankSalidasDay
+    const cdjBancosAcumJorge = prevCdjBancoJorgeV + cdjBankVentasJorge - prevCdjBancoJorgeS - cdjBankSalidasJorge
 
     return {
-      saldoInicioEfBkl, saldoInicioEfSr, seedBancos, seedBancosJorge,
-      bklBancosAcumDay, bklBancosAcumJorge, srBancosAcumDay, srBancosAcumJorge,
+      saldoInicioEfBkl, saldoInicioEfSr, saldoInicioEfCdj, seedBancos, seedBancosJorge,
+      bklBancosAcumDay, bklBancosAcumJorge, srBancosAcumDay, srBancosAcumJorge, cdjBancosAcumDay, cdjBancosAcumJorge,
       bklCashIng, bklBankIngDay, bklBankIngJorge, bklCashGast, bklBankGast,
       srCashVentas, srBankVentasDay, srBankVentasJorge, srCashSalidas, srBankSalidasDay, srBankSalidasJorge,
+      cdjCashVentas, cdjBankVentasDay, cdjBankVentasJorge, cdjCashSalidas, cdjBankSalidasDay, cdjBankSalidasJorge,
       bklGanaste:  bklCashIng + bklBankIngDay + bklBankIngJorge,
       bklGastaste: bklCashGast + bklBankGast + bklBankGastJorge,
       srVentas:    srCashVentas + srBankVentasDay + srBankVentasJorge,
       srSalidas:   srCashSalidas + srBankSalidasDay + srBankSalidasJorge,
+      cdjVentas:   cdjCashVentas + cdjBankVentasDay + cdjBankVentasJorge,
+      cdjSalidas:  cdjCashSalidas + cdjBankSalidasDay + cdjBankSalidasJorge,
     }
-  }, [notas, gastos, srRows, saldosSemana, balanceActual])
+  }, [notas, gastos, srRows, cdjRows, saldosSemana, balanceActual])
 
   const bklEfectivo    = saldoInicioEfBkl + bklCashIng   - bklCashGast
   const srEfectivo     = saldoInicioEfSr  + srCashVentas - srCashSalidas
+  const cdjEfectivo    = saldoInicioEfCdj + cdjCashVentas - cdjCashSalidas
   const bklBancosDay   = bklBancosAcumDay
   const bklBancosJorge = bklBancosAcumJorge
   const srBancosDay    = srBancosAcumDay
   const srBancosJorge  = srBancosAcumJorge
-  const totalBancosDay   = seedBancos      + bklBancosAcumDay   + srBancosAcumDay
-  const totalBancosJorge = seedBancosJorge + bklBancosAcumJorge + srBancosAcumJorge
-  const totalTienes = bklEfectivo + srEfectivo + totalBancosDay + totalBancosJorge
+  const cdjBancosDay   = cdjBancosAcumDay
+  const cdjBancosJorge = cdjBancosAcumJorge
+  const totalBancosDay   = seedBancos      + bklBancosAcumDay   + srBancosAcumDay   + cdjBancosAcumDay
+  const totalBancosJorge = seedBancosJorge + bklBancosAcumJorge + srBancosAcumJorge + cdjBancosAcumJorge
+  const totalTienes = bklEfectivo + srEfectivo + cdjEfectivo + totalBancosDay + totalBancosJorge
   const positivo    = totalTienes >= 0
 
-  useEffect(() => { setRainKey(k => k + 1) }, [bklGanaste, bklGastaste, srVentas, srSalidas])
+  useEffect(() => { setRainKey(k => k + 1) }, [bklGanaste, bklGastaste, srVentas, srSalidas, cdjVentas, cdjSalidas])
 
   const sep = <div style={{ background: 'rgba(255,255,255,.1)', alignSelf: 'stretch' }} />
 
@@ -368,15 +397,31 @@ function CorteCard({ notas, gastos, srRows = [], saldosSemana = [], balanceActua
             </div>
           </div>
 
+          {/* ── CD Judicial ─────────────────────────────────── */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
+            <SectionLabel color="rgba(196,181,253,.6)">● CD Judicial</SectionLabel>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr 1px 1fr' }}>
+              <StatBox label="Ventas"      amount={cdjVentas}      color="#6ee7b7" />
+              {sep}
+              <StatBox label="Salidas"     amount={cdjSalidas}     color="#fca5a5" />
+              {sep}
+              <StatBox label="Efectivo"    amount={cdjEfectivo}    color={cdjEfectivo >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+              {sep}
+              <StatBox label="Banco Day"   amount={cdjBancosDay}   color={cdjBancosDay >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+              {sep}
+              <StatBox label="Banco JORGE" amount={cdjBancosJorge} color={cdjBancosJorge >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
+            </div>
+          </div>
+
           {/* ── Total general ───────────────────────────────── */}
           <div style={{ borderTop: '2px solid rgba(255,255,255,.18)' }}>
             <SectionLabel color="rgba(255,255,255,.5)">◆ Total general</SectionLabel>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr 1px 1fr 1px 1fr' }}>
-              <StatBox label="T. Ganado"   amount={bklGanaste + srVentas}            color="#6ee7b7" />
+              <StatBox label="T. Ganado"   amount={bklGanaste + srVentas + cdjVentas}            color="#6ee7b7" />
               {sep}
-              <StatBox label="T. Gastado"  amount={bklGastaste + srSalidas}           color="#fca5a5" />
+              <StatBox label="T. Gastado"  amount={bklGastaste + srSalidas + cdjSalidas}           color="#fca5a5" />
               {sep}
-              <StatBox label="Efectivo"    amount={bklEfectivo + srEfectivo}          color={(bklEfectivo + srEfectivo) >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
+              <StatBox label="Efectivo"    amount={bklEfectivo + srEfectivo + cdjEfectivo}          color={(bklEfectivo + srEfectivo + cdjEfectivo) >= 0 ? '#fde68a' : '#fca5a5'} isNeg />
               {sep}
               <StatBox label="Banco Day"   amount={totalBancosDay}                    color={totalBancosDay >= 0 ? '#93c5fd' : '#fca5a5'} isNeg />
               {sep}
@@ -462,16 +507,16 @@ const TILE_COLOR = {
 }
 
 function ModuleCard({ data, index, onOpen }) {
-  const { icon: CardIcon, accent, title, desc, chips } = data
-  const tileClass = TILE_COLOR[accent]
+  const { icon: CardIcon, accent, title, desc, chips, locked } = data
+  const tileClass = locked ? 'bg-ink/5 text-ink/35' : TILE_COLOR[accent]
 
   return (
     <motion.div
-      className="bkl-card group flex flex-col text-left rounded-[26px] border-2 border-ink bg-white p-6 shadow-hard cursor-pointer"
-      whileHover={{ y: -4, boxShadow: '7px 7px 0 #2B2731' }}
-      whileTap={{ scale: 0.98 }}
+      className={`bkl-card group flex flex-col text-left rounded-[26px] border-2 border-ink bg-white p-6 shadow-hard ${locked ? 'opacity-60 cursor-default' : 'cursor-pointer'}`}
+      whileHover={locked ? undefined : { y: -4, boxShadow: '7px 7px 0 #2B2731' }}
+      whileTap={locked ? undefined : { scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-      onClick={onOpen}
+      onClick={locked ? undefined : onOpen}
     >
       <div className="flex items-start justify-between">
         <div className={`flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-ink shadow-hard-sm ${tileClass}`}>
@@ -491,12 +536,20 @@ function ModuleCard({ data, index, onOpen }) {
         </div>
       )}
 
-      <div className="mt-auto pt-6 flex items-center gap-2 text-ink font-bold text-sm">
-        <span>Abrir módulo</span>
-        <span className="bkl-arrow inline-flex items-center justify-center h-7 w-7 rounded-full border-2 border-ink bg-white">
-          <ArrowRight size={14} strokeWidth={2.5} />
-        </span>
-      </div>
+      {locked ? (
+        <div className="mt-auto pt-6 flex items-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-ink/25 px-2.5 py-1 text-xs font-bold text-ink/45">
+            Próximamente
+          </span>
+        </div>
+      ) : (
+        <div className="mt-auto pt-6 flex items-center gap-2 text-ink font-bold text-sm">
+          <span>Abrir módulo</span>
+          <span className="bkl-arrow inline-flex items-center justify-center h-7 w-7 rounded-full border-2 border-ink bg-white">
+            <ArrowRight size={14} strokeWidth={2.5} />
+          </span>
+        </div>
+      )}
     </motion.div>
   )
 }
@@ -505,7 +558,7 @@ function ModuleCard({ data, index, onOpen }) {
 // MÓDULOS
 // ═══════════════════════════════════════════════════════════════
 
-const buildModules = (onNavigate) => [
+const buildModules = (onNavigate, cdjLive) => [
   {
     title: 'Nota de Venta',
     icon: ReceiptText,
@@ -522,6 +575,12 @@ const buildModules = (onNavigate) => [
   { title: 'Concentrado de Gastos',   icon: TrendingDown, accent: 'sky',   desc: 'Controla insumos y costos de operación.',      onOpen: () => onNavigate('gastos') },
   { title: 'Calendario de Entregas',  icon: CalendarDays, accent: 'lilac', desc: 'Organiza tus pedidos por fecha de entrega.',   onOpen: () => onNavigate('calendario') },
   { title: 'Control San Ramón',       icon: Store,        accent: 'pink',  desc: 'Registro de ventas y salidas de la sucursal.', onOpen: () => onNavigate('sanramon') },
+  {
+    title: 'Control CD Judicial', icon: Landmark, accent: 'lilac',
+    desc: cdjLive ? 'Registro de ventas y salidas de la sucursal.' : 'Disponible a partir del 1 de octubre.',
+    locked: !cdjLive,
+    onOpen: cdjLive ? () => onNavigate('cdjudicial') : undefined,
+  },
   { title: 'Historial de Cortes',     icon: Archive,      accent: 'mint',  desc: 'Guarda y revisa el corte de caja de cada semana.', onOpen: () => onNavigate('cortes') },
 ]
 
@@ -529,8 +588,9 @@ const buildModules = (onNavigate) => [
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 
-export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], saldosSemana = [], balanceActual = null, onChangePinRequest }) {
-  const modules = buildModules(onNavigate)
+export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = [], srRows = [], cdjRows = [], saldosSemana = [], balanceActual = null, onChangePinRequest }) {
+  const cdjLive = isCdjLive()
+  const modules = buildModules(onNavigate, cdjLive)
   const [corteUnlocked, setCorteUnlocked] = useState(false)
   const [showCortePin,  setShowCortePin]  = useState(false)
 
@@ -548,6 +608,7 @@ export default function Dashboard({ onNavigate = () => {}, notas = [], gastos = 
           notas={notas}
           gastos={gastos}
           srRows={srRows}
+          cdjRows={cdjRows}
           saldosSemana={saldosSemana}
           balanceActual={balanceActual}
           unlocked={corteUnlocked}

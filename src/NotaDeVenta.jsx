@@ -11,6 +11,8 @@ const PINK_HI   = '#fbe0ea'
 const PINK_TEXT = '#d9748f'
 const MINT_BG   = '#d9efd2'
 const MINT_TEXT = '#5d8a49'
+const LILAC_BG   = '#E9E0F6'
+const LILAC_TEXT = '#6b5b95'
 
 
 const todayISO  = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
@@ -98,8 +100,9 @@ function MethodPicker({ value, onChange }) {
 
 function SucursalPicker({ value, onChange }) {
   const opts = [
-    { id: 'BKL', bg: PINK_HI, color: PINK_TEXT },
-    { id: 'SR',  bg: MINT_BG, color: MINT_TEXT  },
+    { id: 'BKL', bg: PINK_HI,  color: PINK_TEXT  },
+    { id: 'SR',  bg: MINT_BG,  color: MINT_TEXT  },
+    { id: 'CDJ', bg: LILAC_BG, color: LILAC_TEXT },
   ]
   return (
     <div style={{ display: 'flex', height: '100%' }}>
@@ -107,7 +110,7 @@ function SucursalPicker({ value, onChange }) {
         const on = value === id
         return (
           <button key={id} onClick={() => onChange(id)}
-            style={{ flex:1, textAlign:'center', fontSize:11.5, fontWeight: on ? 800 : 600, color: on ? color : '#bbb', background: on ? bg : 'transparent', cursor:'pointer', border:'none', borderRight: i === 0 ? `1px solid ${GRAY_LINE}` : 'none' }}>
+            style={{ flex:1, textAlign:'center', fontSize:11.5, fontWeight: on ? 800 : 600, color: on ? color : '#bbb', background: on ? bg : 'transparent', cursor:'pointer', border:'none', borderRight: i < opts.length - 1 ? `1px solid ${GRAY_LINE}` : 'none' }}>
             {id}
           </button>
         )

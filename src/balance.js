@@ -37,12 +37,14 @@ const empty = () => ({
   prevBklEfGast: 0, prevBklBancoGast: 0, prevBklBancoJorgeGast: 0,
   prevSrEfV: 0, prevSrBancoDayV: 0, prevSrBancoJorgeV: 0,
   prevSrEfS: 0, prevSrBancoDayS: 0, prevSrBancoJorgeS: 0,
+  prevCdjEfV: 0, prevCdjBancoDayV: 0, prevCdjBancoJorgeV: 0,
+  prevCdjEfS: 0, prevCdjBancoDayS: 0, prevCdjBancoJorgeS: 0,
 })
 
 function addNotas(acc, notas, testFn) {
   notas.forEach(n =>
     (n.pagos || []).forEach(p => {
-      if (p.sucursal === 'SR') return
+      if (p.sucursal === 'SR' || p.sucursal === 'CDJ') return
       const pf = p.fecha || n.createdAt
       if (!testFn(pf)) return
       const m = parseFloat(p.monto) || 0
@@ -63,6 +65,20 @@ function addNotasSR(acc, notas, testFn) {
       if      (p.metodoPago === 'Efectivo')    acc.prevSrEfV         += m
       else if (p.metodoPago === 'Banco JORGE') acc.prevSrBancoJorgeV += m
       else                                     acc.prevSrBancoDayV    += m
+    })
+  )
+}
+
+function addNotasCDJ(acc, notas, testFn) {
+  notas.forEach(n =>
+    (n.pagos || []).forEach(p => {
+      if (p.sucursal !== 'CDJ') return
+      const pf = p.fecha || n.createdAt
+      if (!testFn(pf)) return
+      const m = parseFloat(p.monto) || 0
+      if      (p.metodoPago === 'Efectivo')    acc.prevCdjEfV         += m
+      else if (p.metodoPago === 'Banco JORGE') acc.prevCdjBancoJorgeV += m
+      else                                     acc.prevCdjBancoDayV    += m
     })
   )
 }
@@ -95,17 +111,36 @@ function addSrRows(acc, srRows, testFn) {
   })
 }
 
-export function computeBalanceFull(notas, gastos, srRows, weekStart) {
+function addCdjRows(acc, cdjRows, testFn) {
+  cdjRows.forEach(r => {
+    if (r.fromNota) return  // ya contado vía addNotasCDJ
+    if (!r.fecha || !testFn(r.fecha)) return
+    const m = parseFloat(r.precio) || 0
+    if (r.tipo === 'venta') {
+      if      (r.metodo === 'Efectivo')    acc.prevCdjEfV         += m
+      else if (r.metodo === 'Banco JORGE') acc.prevCdjBancoJorgeV += m
+      else                                 acc.prevCdjBancoDayV    += m
+    } else if (r.tipo === 'salida') {
+      if      (r.metodo === 'Efectivo')    acc.prevCdjEfS         += m
+      else if (r.metodo === 'Banco JORGE') acc.prevCdjBancoJorgeS += m
+      else                                 acc.prevCdjBancoDayS    += m
+    }
+  })
+}
+
+export function computeBalanceFull(notas, gastos, srRows, cdjRows, weekStart) {
   const acc = empty()
   const test = pf => before(pf, weekStart)
   addNotas(acc, notas, test)
   addNotasSR(acc, notas, test)
+  addNotasCDJ(acc, notas, test)
   addGastos(acc, gastos, test)
   addSrRows(acc, srRows, test)
+  addCdjRows(acc, cdjRows, test)
   return { weekStart, ...acc }
 }
 
-export function rolloverBalance(balance, notas, gastos, srRows, newWeekStart) {
+export function rolloverBalance(balance, notas, gastos, srRows, cdjRows, newWeekStart) {
   // Nunca retrocedas: si newWeekStart no es posterior a la semana ya
   // guardada, no hay nada que avanzar (evita corromper weekStart si
   // un dispositivo calcula mal la semana actual).
@@ -117,8 +152,10 @@ export function rolloverBalance(balance, notas, gastos, srRows, newWeekStart) {
   const test = pf => between(pf, from, to)
   addNotas(acc, notas, test)
   addNotasSR(acc, notas, test)
+  addNotasCDJ(acc, notas, test)
   addGastos(acc, gastos, test)
   addSrRows(acc, srRows, test)
+  addCdjRows(acc, cdjRows, test)
   acc.weekStart = newWeekStart
   return acc
 }
@@ -135,10 +172,10 @@ export function rolloverBalance(balance, notas, gastos, srRows, newWeekStart) {
 export function notaBalanceDelta(oldNota, newNota, weekStart) {
   const acc = empty()
 
-  // Pagos BKL (no SR)
+  // Pagos BKL (no SR, no CDJ)
   const applyBkl = (nota, sign) =>
     (nota?.pagos || []).forEach(p => {
-      if (p.sucursal === 'SR') return
+      if (p.sucursal === 'SR' || p.sucursal === 'CDJ') return
       const pf = p.fecha || nota.createdAt
       if (!before(pf, weekStart)) return
       const m = (parseFloat(p.monto) || 0) * sign
@@ -162,6 +199,20 @@ export function notaBalanceDelta(oldNota, newNota, weekStart) {
     })
   applySr(oldNota, -1)
   applySr(newNota, +1)
+
+  // Pagos CDJ (se reflejan en cdjudicial_rows como tipo='venta', fromNota:true)
+  const applyCdj = (nota, sign) =>
+    (nota?.pagos || []).forEach(p => {
+      if (p.sucursal !== 'CDJ') return
+      const pf = p.fecha || nota.createdAt
+      if (!before(pf, weekStart)) return
+      const m = (parseFloat(p.monto) || 0) * sign
+      if      (p.metodoPago === 'Efectivo')    acc.prevCdjEfV         += m
+      else if (p.metodoPago === 'Banco JORGE') acc.prevCdjBancoJorgeV += m
+      else                                     acc.prevCdjBancoDayV    += m
+    })
+  applyCdj(oldNota, -1)
+  applyCdj(newNota, +1)
 
   return acc
 }
@@ -196,6 +247,28 @@ export function srRowBalanceDelta(oldRow, newRow, weekStart) {
       if      (r.metodo === 'Efectivo')    acc.prevSrEfS         += m
       else if (r.metodo === 'Banco JORGE') acc.prevSrBancoJorgeS += m
       else                                 acc.prevSrBancoDayS    += m
+    }
+  }
+  apply(oldRow, -1)
+  apply(newRow, +1)
+  return acc
+}
+
+// Fila de CD Judicial (venta/salida capturada directo, no vía nota)
+export function cdjRowBalanceDelta(oldRow, newRow, weekStart) {
+  const acc = empty()
+  const apply = (r, sign) => {
+    if (!r || r.fromNota) return // ya se cuenta vía notaBalanceDelta
+    if (!r.fecha || !before(r.fecha, weekStart)) return
+    const m = (parseFloat(r.precio) || 0) * sign
+    if (r.tipo === 'venta') {
+      if      (r.metodo === 'Efectivo')    acc.prevCdjEfV         += m
+      else if (r.metodo === 'Banco JORGE') acc.prevCdjBancoJorgeV += m
+      else                                 acc.prevCdjBancoDayV    += m
+    } else if (r.tipo === 'salida') {
+      if      (r.metodo === 'Efectivo')    acc.prevCdjEfS         += m
+      else if (r.metodo === 'Banco JORGE') acc.prevCdjBancoJorgeS += m
+      else                                 acc.prevCdjBancoDayS    += m
     }
   }
   apply(oldRow, -1)

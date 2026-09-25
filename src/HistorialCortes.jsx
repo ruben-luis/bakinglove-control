@@ -60,6 +60,7 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
   const cortesAsc = [...cortes].sort((a, b) => (a.savedAt || '').localeCompare(b.savedAt || ''))
   const ingresoAcumulado = c => (c.prevBklEf || 0) + (c.prevBklBancoDay || 0) + (c.prevBklBancoJorge || 0)
     + (c.prevSrEfV || 0) + (c.prevSrBancoDayV || 0) + (c.prevSrBancoJorgeV || 0)
+    + (c.prevCdjEfV || 0) + (c.prevCdjBancoDayV || 0) + (c.prevCdjBancoJorgeV || 0)
 
   // Cuánto entró (ingreso bruto) entre este corte y el anterior. El
   // corte más viejo no tiene con qué compararse → null (sin dato).
@@ -116,11 +117,14 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
             // por sucursal para no inventar un desglose que no existe.
             const efBkl   = (seed.efectivoBkl  || 0) + (c.prevBklEf         || 0) - (c.prevBklEfGast         || 0)
             const efSr    = (seed.efectivoSr   || 0) + (c.prevSrEfV         || 0) - (c.prevSrEfS             || 0)
+            const efCdj   = (seed.efectivoCdj  || 0) + (c.prevCdjEfV        || 0) - (c.prevCdjEfS            || 0)
             const bkDay   = (seed.bancos       || 0) + (c.prevBklBancoDay   || 0) - (c.prevBklBancoGast      || 0)
                             + (c.prevSrBancoDayV   || 0) - (c.prevSrBancoDayS   || 0)
+                            + (c.prevCdjBancoDayV  || 0) - (c.prevCdjBancoDayS  || 0)
             const bkJorge = (seed.bancosJorge  || 0) + (c.prevBklBancoJorge || 0) - (c.prevBklBancoJorgeGast || 0)
                             + (c.prevSrBancoJorgeV || 0) - (c.prevSrBancoJorgeS || 0)
-            const total   = efBkl + efSr + bkDay + bkJorge
+                            + (c.prevCdjBancoJorgeV || 0) - (c.prevCdjBancoJorgeS || 0)
+            const total   = efBkl + efSr + efCdj + bkDay + bkJorge
             const ganado  = ganadoDesdeCorteAnterior(c)
 
             return (
@@ -154,8 +158,9 @@ export default function HistorialCortes({ onBack, onGuardarCorte, saldosSemana =
                 <div style={{ fontSize: 13, color: '#555', lineHeight: 1.8 }}>
                   <div>Efectivo BKL: {fmt(efBkl)}</div>
                   <div>Efectivo SR: {fmt(efSr)}</div>
-                  <div>Banco Day (BKL+SR): {fmt(bkDay)}</div>
-                  <div>Banco JORGE (BKL+SR): {fmt(bkJorge)}</div>
+                  <div>Efectivo CDJ: {fmt(efCdj)}</div>
+                  <div>Banco Day (BKL+SR+CDJ): {fmt(bkDay)}</div>
+                  <div>Banco JORGE (BKL+SR+CDJ): {fmt(bkJorge)}</div>
                 </div>
                 <div style={{ marginTop: 8, fontWeight: 800, color: NAVY, fontSize: 15 }}>
                   Total: {fmt(total)}

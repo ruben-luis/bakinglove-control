@@ -65,6 +65,21 @@ service cloud.firestore {
       allow read, write: if isAuthed();
     }
 
+    // ── cdjudicial_rows (pantalla CD Judicial, sin NIP en la UI) ──
+    match /cdjudicial_rows/{rowId} {
+      allow read: if isAuthed();
+      allow create, update: if isAuthed()
+        && request.resource.data.id == rowId
+        && request.resource.data.keys().hasAll(['id', 'fecha', 'tipo', 'precio'])
+        && request.resource.data.tipo in ['venta', 'salida']
+        && isNumber(request.resource.data.precio);
+      allow delete: if isAuthed();
+    }
+
+    match /cdjudicial_saldos/{docId} {
+      allow read, write: if isAuthed();
+    }
+
     match /saldos_semana/{docId} {
       allow read, write: if isAuthed();
     }
@@ -102,7 +117,9 @@ service cloud.firestore {
              'weekStart', 'prevBklEf', 'prevBklBancoDay', 'prevBklBancoJorge',
              'prevBklEfGast', 'prevBklBancoGast', 'prevBklBancoJorgeGast',
              'prevSrEfV', 'prevSrBancoDayV', 'prevSrBancoJorgeV',
-             'prevSrEfS', 'prevSrBancoDayS', 'prevSrBancoJorgeS'
+             'prevSrEfS', 'prevSrBancoDayS', 'prevSrBancoJorgeS',
+             'prevCdjEfV', 'prevCdjBancoDayV', 'prevCdjBancoJorgeV',
+             'prevCdjEfS', 'prevCdjBancoDayS', 'prevCdjBancoJorgeS'
            ]);
     }
 

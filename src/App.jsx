@@ -17,8 +17,11 @@ import ConcentradoIngresos from './ConcentradoIngresos'
 import ConcentradoGastos from './ConcentradoGastos'
 import CalendarioEntregas from './CalendarioEntregas'
 import SanRamonView from './SanRamonView'
+import CdJudicialView from './CdJudicialView'
 import HistorialCortes from './HistorialCortes'
 import PinModal, { savePin } from './PinModal'
+import CdjWelcomeModal from './CdjWelcomeModal'
+import { isCdjLive } from './cdjLaunch'
 
 // Ventana de retención para los listeners "siempre activos" de gastos y
 // sanramon_rows: Dashboard (la pantalla abierta todo el día) solo necesita
@@ -38,12 +41,21 @@ export default function App() {
   const [notas,        setNotas]        = useState([])
   const [gastos,       setGastos]       = useState([])
   const [srRows,       setSrRows]       = useState([])
+  const [cdjRows,      setCdjRows]      = useState([])
   const [saldosSemana, setSaldosSemana] = useState([])
   const [pinAction,     setPinAction]    = useState(null)
   const [loading,       setLoading]      = useState(true)
   const [serverSynced,  setServerSynced] = useState(false)
   const [editingNota,   setEditingNota]  = useState(null)
   const [balanceActual, setBalanceActual] = useState(null)
+  const [showCdjWelcome, setShowCdjWelcome] = useState(false)
+
+  // ── Modal de bienvenida CD Judicial (una sola vez, tras el lanzamiento) ──
+  useEffect(() => {
+    if (isCdjLive() && localStorage.getItem('cdj_welcome_shown') !== '1') {
+      setShowCdjWelcome(true)
+    }
+  }, [])
 
   // ── Suscripción en tiempo real a Firestore ────────────────────
   // Espera a que exista sesión (authReady) antes de suscribirse: las
@@ -58,13 +70,13 @@ export default function App() {
   // (como el avance de semana), para no operar con un snapshot de
   // caché parcial o desactualizado.
   useEffect(() => {
-    let unsubNotas = () => {}, unsubGastos = () => {}, unsubSR = () => {}, unsubSaldos = () => {}
+    let unsubNotas = () => {}, unsubGastos = () => {}, unsubSR = () => {}, unsubCDJ = () => {}, unsubSaldos = () => {}
     let cancelled = false
-    const loaded = { notas: false, gastos: false, sr: false }
-    const synced = { notas: false, gastos: false, sr: false }
+    const loaded = { notas: false, gastos: false, sr: false, cdj: false }
+    const synced = { notas: false, gastos: false, sr: false, cdj: false }
     const check  = () => {
-      if (loaded.notas && loaded.gastos && loaded.sr) setLoading(false)
-      if (synced.notas && synced.gastos && synced.sr) setServerSynced(true)
+      if (loaded.notas && loaded.gastos && loaded.sr && loaded.cdj) setLoading(false)
+      if (synced.notas && synced.gastos && synced.sr && synced.cdj) setServerSynced(true)
     }
 
     authReady.then(() => {
@@ -100,12 +112,22 @@ export default function App() {
           check()
         }
       )
+      unsubCDJ = onSnapshot(
+        query(collection(db, 'cdjudicial_rows'), where('fecha', '>=', cutoffISO)),
+        { includeMetadataChanges: true },
+        snap => {
+          setCdjRows(snap.docs.map(d => d.data()))
+          loaded.cdj = true
+          if (!snap.metadata.fromCache) synced.cdj = true
+          check()
+        }
+      )
       unsubSaldos = onSnapshot(collection(db, 'saldos_semana'), snap => {
         setSaldosSemana(snap.docs.map(d => d.data()))
       })
     }).catch(console.error)
 
-    return () => { cancelled = true; unsubNotas(); unsubGastos(); unsubSR(); unsubSaldos() }
+    return () => { cancelled = true; unsubNotas(); unsubGastos(); unsubSR(); unsubCDJ(); unsubSaldos() }
   }, [])
 
   // ── Balance pre-computado: sincronizado en tiempo real ────────
@@ -143,19 +165,21 @@ export default function App() {
     Promise.all([
       getDocsFromServer(collection(db, 'gastos')),
       getDocsFromServer(collection(db, 'sanramon_rows')),
-    ]).then(([gastosSnap, srSnap]) => {
+      getDocsFromServer(collection(db, 'cdjudicial_rows')),
+    ]).then(([gastosSnap, srSnap, cdjSnap]) => {
       const gastosFull = gastosSnap.docs.map(d => d.data())
       const srRowsFull = srSnap.docs.map(d => d.data())
+      const cdjRowsFull = cdjSnap.docs.map(d => d.data())
 
       return runTransaction(db, async (tx) => {
         const snap = await tx.get(balRef)
         if (!snap.exists()) {
-          tx.set(balRef, computeBalanceFull(notas, gastosFull, srRowsFull, weekStart))
+          tx.set(balRef, computeBalanceFull(notas, gastosFull, srRowsFull, cdjRowsFull, weekStart))
           return
         }
         const saved = snap.data()
         if (saved.weekStart >= weekStart) return // ya está al día
-        const rolled = rolloverBalance(saved, notas, gastosFull, srRowsFull, weekStart)
+        const rolled = rolloverBalance(saved, notas, gastosFull, srRowsFull, cdjRowsFull, weekStart)
         tx.set(balRef, rolled)
         // El corte de la semana NO se archiva aquí: este avance puede
         // dispararse a cualquier hora (ej. la madrugada del lunes) antes
@@ -187,15 +211,17 @@ export default function App() {
   const saveManualCorte = async () => {
     const now = new Date()
     const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const [notasSnap, gastosSnap, srSnap] = await Promise.all([
+    const [notasSnap, gastosSnap, srSnap, cdjSnap] = await Promise.all([
       getDocsFromServer(collection(db, 'notas')),
       getDocsFromServer(collection(db, 'gastos')),
       getDocsFromServer(collection(db, 'sanramon_rows')),
+      getDocsFromServer(collection(db, 'cdjudicial_rows')),
     ])
     const freshNotas  = notasSnap.docs.map(d => d.data())
     const freshGastos = gastosSnap.docs.map(d => d.data())
     const freshSrRows = srSnap.docs.map(d => d.data())
-    const snapshot = computeBalanceFull(freshNotas, freshGastos, freshSrRows, todayISO)
+    const freshCdjRows = cdjSnap.docs.map(d => d.data())
+    const snapshot = computeBalanceFull(freshNotas, freshGastos, freshSrRows, freshCdjRows, todayISO)
     await setDoc(doc(db, 'cortes_semana', `manual_${todayISO}_${Date.now()}`), {
       ...snapshot, tipo: 'manual', savedAt: new Date().toISOString(),
     })
@@ -209,6 +235,28 @@ export default function App() {
     await Promise.all(srPagos.map((p, idx) => {
       const id = `nota_${nota.id}_sr_${idx}`
       return setDoc(doc(db, 'sanramon_rows', id), {
+        id,
+        fecha: p.fecha,
+        tipo: 'venta',
+        producto: `Nota ${nota.folio}`,
+        precio: parseFloat(p.monto) || 0,
+        metodo: p.metodoPago === 'Efectivo' ? 'Efectivo' : p.metodoPago === 'Banco JORGE' ? 'Banco JORGE' : 'Banco Day',
+        fromNota: true,
+        notaId: nota.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }))
+  }
+
+  // ── Sync pagos CDJ de una nota → cdjudicial_rows ─────────────
+  const syncNotaCDJPayments = async (nota) => {
+    const existingSnap = await getDocs(query(collection(db, 'cdjudicial_rows'), where('notaId', '==', nota.id)))
+    await Promise.all(existingSnap.docs.map(d => deleteDoc(d.ref)))
+    const cdjPagos = (nota.pagos || []).filter(p => p.sucursal === 'CDJ' && p.monto && p.fecha && p.metodoPago)
+    await Promise.all(cdjPagos.map((p, idx) => {
+      const id = `nota_${nota.id}_cdj_${idx}`
+      return setDoc(doc(db, 'cdjudicial_rows', id), {
         id,
         fecha: p.fecha,
         tipo: 'venta',
@@ -239,6 +287,7 @@ export default function App() {
       tx.set(doc(db, 'notas', nota.id), notaFinal)
     })
     await syncNotaSRPayments(notaFinal)
+    await syncNotaCDJPayments(notaFinal)
     if (balanceActual) {
       applyBalanceDelta(notaBalanceDelta(null, notaFinal, balanceActual.weekStart))
     }
@@ -253,6 +302,7 @@ export default function App() {
     }
     await setDoc(doc(db, 'notas', notaEditada.id), notaEditada)
     await syncNotaSRPayments(notaEditada)
+    await syncNotaCDJPayments(notaEditada)
     if (balanceActual && oldNota) {
       applyBalanceDelta(notaBalanceDelta(oldNota, notaEditada, balanceActual.weekStart))
     }
@@ -266,6 +316,8 @@ export default function App() {
     }
     const srToDeleteSnap = await getDocs(query(collection(db, 'sanramon_rows'), where('notaId', '==', notaId)))
     await Promise.all(srToDeleteSnap.docs.map(d => deleteDoc(d.ref)))
+    const cdjToDeleteSnap = await getDocs(query(collection(db, 'cdjudicial_rows'), where('notaId', '==', notaId)))
+    await Promise.all(cdjToDeleteSnap.docs.map(d => deleteDoc(d.ref)))
     if (balanceActual && deletedNota) {
       applyBalanceDelta(notaBalanceDelta(deletedNota, null, balanceActual.weekStart))
     }
@@ -330,6 +382,8 @@ export default function App() {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} onDeleteNota={handleDeleteNota} />
   } else if (view === 'sanramon') {
     content = <SanRamonView onBack={() => setView('dashboard')} weekStart={balanceActual?.weekStart} />
+  } else if (view === 'cdjudicial') {
+    content = <CdJudicialView onBack={() => setView('dashboard')} weekStart={balanceActual?.weekStart} />
   } else if (view === 'cortes') {
     content = <HistorialCortes onBack={() => setView('dashboard')} onGuardarCorte={saveManualCorte} saldosSemana={saldosSemana} />
   } else {
@@ -339,11 +393,17 @@ export default function App() {
         notas={notas}
         gastos={gastos}
         srRows={srRows}
+        cdjRows={cdjRows}
         saldosSemana={saldosSemana}
         balanceActual={balanceActual}
         onChangePinRequest={() => setPinAction('change-verify')}
       />
     )
+  }
+
+  const dismissCdjWelcome = () => {
+    localStorage.setItem('cdj_welcome_shown', '1')
+    setShowCdjWelcome(false)
   }
 
   return (
@@ -356,6 +416,12 @@ export default function App() {
           mode={pinMode}
           onSuccess={handlePinSuccess}
           onCancel={() => setPinAction(null)}
+        />
+      )}
+      {showCdjWelcome && (
+        <CdjWelcomeModal
+          onGoToCdj={() => { dismissCdjWelcome(); setView('cdjudicial') }}
+          onClose={dismissCdjWelcome}
         />
       )}
     </>

@@ -132,6 +132,62 @@ async function run() {
       record('anonimo: crear sanramon_row valido permitido', true)
     } catch (e) { record('anonimo: crear sanramon_row valido permitido', false, e.message) }
   }
+  {
+    const db = anon.firestore()
+    try {
+      await assertSucceeds(setDoc(doc(db, 'cdjudicial_rows', 'c1'), {
+        id: 'c1', fecha: '2026-08-29', tipo: 'venta', precio: 50,
+      }))
+      record('anonimo: crear cdjudicial_row valido permitido', true)
+    } catch (e) { record('anonimo: crear cdjudicial_row valido permitido', false, e.message) }
+  }
+  {
+    const db = anon.firestore()
+    try {
+      await assertFails(setDoc(doc(db, 'cdjudicial_rows', 'c2'), {
+        id: 'c2', fecha: '2026-08-29', tipo: 'invalido', precio: 50,
+      }))
+      record('anonimo: crear cdjudicial_row con tipo invalido denegado', true)
+    } catch (e) { record('anonimo: crear cdjudicial_row con tipo invalido denegado', false, e.message) }
+  }
+  {
+    const db = anon.firestore()
+    try {
+      await assertSucceeds(deleteDoc(doc(db, 'cdjudicial_rows', 'c1')))
+      record('anonimo: borrar cdjudicial_row permitido', true)
+    } catch (e) { record('anonimo: borrar cdjudicial_row permitido', false, e.message) }
+  }
+  {
+    const db = anon.firestore()
+    try {
+      await assertSucceeds(setDoc(doc(db, 'cdjudicial_saldos', 's1'), { weekStart: '2026-08-25', total: 100 }))
+      record('anonimo: escribir cdjudicial_saldos permitido', true)
+    } catch (e) { record('anonimo: escribir cdjudicial_saldos permitido', false, e.message) }
+  }
+  {
+    const db = anon.firestore()
+    try {
+      await assertSucceeds(setDoc(doc(db, 'config', 'balance_actual'), {
+        weekStart: '2026-08-25',
+        prevBklEf: 0, prevBklBancoDay: 0, prevBklBancoJorge: 0,
+        prevBklEfGast: 0, prevBklBancoGast: 0, prevBklBancoJorgeGast: 0,
+        prevSrEfV: 0, prevSrBancoDayV: 0, prevSrBancoJorgeV: 0,
+        prevSrEfS: 0, prevSrBancoDayS: 0, prevSrBancoJorgeS: 0,
+        prevCdjEfV: 0, prevCdjBancoDayV: 0, prevCdjBancoJorgeV: 0,
+        prevCdjEfS: 0, prevCdjBancoDayS: 0, prevCdjBancoJorgeS: 0,
+      }))
+      record('anonimo: escribir balance_actual con los 18 campos (incl. prevCdj*) permitido', true)
+    } catch (e) { record('anonimo: escribir balance_actual con los 18 campos (incl. prevCdj*) permitido', false, e.message) }
+  }
+  {
+    const db = anon.firestore()
+    try {
+      await assertFails(setDoc(doc(db, 'config', 'balance_actual'), {
+        weekStart: '2026-08-25', prevCdjEfV: 0, campoQueNoExiste: 1,
+      }))
+      record('anonimo: escribir balance_actual con campo extra denegado (hasOnly)', true)
+    } catch (e) { record('anonimo: escribir balance_actual con campo extra denegado (hasOnly)', false, e.message) }
+  }
 
   // 3. NIP verificado: puede gastos, cortes, cambiar pin
   {

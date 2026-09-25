@@ -83,10 +83,12 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
   // solo alimenta el Dashboard con "esta semana".
   const [gastosFull, setGastosFull] = useState([])
   const [srRowsFull, setSrRowsFull] = useState([])
+  const [cdjRowsFull, setCdjRowsFull] = useState([])
   useEffect(() => {
     const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => setGastosFull(snap.docs.map(d => d.data())))
     const unsubSR = onSnapshot(collection(db, 'sanramon_rows'), snap => setSrRowsFull(snap.docs.map(d => d.data())))
-    return () => { unsubGastos(); unsubSR() }
+    const unsubCDJ = onSnapshot(collection(db, 'cdjudicial_rows'), snap => setCdjRowsFull(snap.docs.map(d => d.data())))
+    return () => { unsubGastos(); unsubSR(); unsubCDJ() }
   }, [])
 
   const [refDate,    setRefDate]    = useState(now)
@@ -110,6 +112,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
   })
   const notasDia   = notasMes.filter(n => { const d = new Date(n.createdAt); return localISO(d) === filterDate })
   const srVentasDia = srRowsFull.filter(r => r.tipo === 'venta' && r.fecha === filterDate)
+  const cdjVentasDia = cdjRowsFull.filter(r => r.tipo === 'venta' && r.fecha === filterDate)
 
   // Cálculo dinámico: saldo inicial (semilla + historial) + acumulado semanal
   const { saldoInicialEfectivo, saldoInicialBancosDay, saldoInicialBancosJorge, acum, gastoAcum } = useMemo(() => {
@@ -130,6 +133,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
     // Acumular TODO antes de esta semana
     let prevBklEf=0, prevBklBancoDay=0, prevBklBancoJorge=0, prevBklEfGast=0, prevBklBancoGast=0, prevBklBancoJorgeGast=0
     let prevSrEfV=0, prevSrBancoDayV=0, prevSrBancoJorgeV=0, prevSrEfS=0, prevSrBancoDayS=0, prevSrBancoJorgeS=0
+    let prevCdjEfV=0, prevCdjBancoDayV=0, prevCdjBancoJorgeV=0, prevCdjEfS=0, prevCdjBancoDayS=0, prevCdjBancoJorgeS=0
 
     if (balanceActual && balanceActual.weekStart === toISO(wStart)) {
       // Semana actual: usar balance pre-computado (preciso y sin leer historial)
@@ -145,12 +149,18 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
       prevSrEfS             = balanceActual.prevSrEfS
       prevSrBancoDayS       = balanceActual.prevSrBancoDayS
       prevSrBancoJorgeS     = balanceActual.prevSrBancoJorgeS
+      prevCdjEfV             = balanceActual.prevCdjEfV             ?? 0
+      prevCdjBancoDayV       = balanceActual.prevCdjBancoDayV       ?? 0
+      prevCdjBancoJorgeV     = balanceActual.prevCdjBancoJorgeV     ?? 0
+      prevCdjEfS             = balanceActual.prevCdjEfS             ?? 0
+      prevCdjBancoDayS       = balanceActual.prevCdjBancoDayS       ?? 0
+      prevCdjBancoJorgeS     = balanceActual.prevCdjBancoJorgeS     ?? 0
     } else {
-      // Semana anterior: usar historial completo (gastosFull/srRowsFull)
+      // Semana anterior: usar historial completo (gastosFull/srRowsFull/cdjRowsFull)
       notas.forEach(n => (n.pagos||[]).forEach(p => {
         const pf = p.fecha || n.createdAt
         if (!beforeWk(pf)) return
-        if (p.sucursal === 'SR') return
+        if (p.sucursal === 'SR' || p.sucursal === 'CDJ') return
         const m = parseFloat(p.monto) || 0
         if (p.metodoPago === 'Efectivo')    prevBklEf         += m
         if (p.metodoPago === 'Terminal' || p.metodoPago === 'Transferencia' || p.metodoPago === 'Banco Day') prevBklBancoDay += m
@@ -174,19 +184,30 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
         if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevSrBancoDayS += m
         if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                           prevSrBancoJorgeS += m
       })
+      cdjRowsFull.forEach(r => {
+        if (!r.fecha || !beforeWk(r.fecha)) return
+        const m = parseFloat(r.precio) || 0
+        if (r.tipo === 'venta'  && r.metodo === 'Efectivo')                                                            prevCdjEfV         += m
+        if (r.tipo === 'venta'  && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevCdjBancoDayV += m
+        if (r.tipo === 'venta'  && r.metodo === 'Banco JORGE')                                                                               prevCdjBancoJorgeV += m
+        if (r.tipo === 'salida' && r.metodo === 'Efectivo')                                                                               prevCdjEfS         += m
+        if (r.tipo === 'salida' && (r.metodo === 'Banco Day' || r.metodo === 'Banco' || r.metodo === 'Terminal' || r.metodo === 'Transferencia')) prevCdjBancoDayS += m
+        if (r.tipo === 'salida' && r.metodo === 'Banco JORGE')                                                           prevCdjBancoJorgeS += m
+      })
     }
 
     const saldoEfBkl  = (seed.efectivoBkl||0) + prevBklEf         - prevBklEfGast
     const saldoEfSr   = (seed.efectivoSr||0)  + prevSrEfV         - prevSrEfS
-    const saldoBkDay  = (seed.bancos||0)       + prevBklBancoDay   - prevBklBancoGast + prevSrBancoDayV   - prevSrBancoDayS
-    const saldoBkJorge = (seed.bancosJorge||0) + prevBklBancoJorge - prevBklBancoJorgeGast + prevSrBancoJorgeV - prevSrBancoJorgeS
+    const saldoEfCdj  = (seed.efectivoCdj||0) + prevCdjEfV        - prevCdjEfS
+    const saldoBkDay  = (seed.bancos||0)       + prevBklBancoDay   - prevBklBancoGast + prevSrBancoDayV   - prevSrBancoDayS   + prevCdjBancoDayV   - prevCdjBancoDayS
+    const saldoBkJorge = (seed.bancosJorge||0) + prevBklBancoJorge - prevBklBancoJorgeGast + prevSrBancoJorgeV - prevSrBancoJorgeS + prevCdjBancoJorgeV - prevCdjBancoJorgeS
 
     // Acumulado ingresos: pagos de ESTA semana (por fecha del pago)
     const acum = { Terminal: 0, Transferencia: 0, Efectivo: 0, 'Banco JORGE': 0 }
     notas.forEach(n => (n.pagos||[]).forEach(p => {
       const pf = p.fecha || n.createdAt
       if (!inWk(pf)) return
-      if (p.sucursal === 'SR') return  // ya está en srRowsFull como fromNota
+      if (p.sucursal === 'SR' || p.sucursal === 'CDJ') return  // ya está en srRowsFull/cdjRowsFull como fromNota
       const m = parseFloat(p.monto) || 0
       if (p.metodoPago === 'Terminal')                             acum.Terminal       += m
       if (p.metodoPago === 'Transferencia')                        acum.Transferencia  += m
@@ -195,6 +216,14 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
       if (p.metodoPago === 'Banco JORGE')                          acum['Banco JORGE'] += m
     }))
     srRowsFull.forEach(r => {
+      if (r.tipo !== 'venta' || !r.fecha || !inWk(r.fecha)) return
+      const m = parseFloat(r.precio) || 0
+      if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') acum.Terminal       += m
+      else if (r.metodo === 'Transferencia')                                          acum.Transferencia  += m
+      else if (r.metodo === 'Banco JORGE')                      acum['Banco JORGE'] += m
+      else if (r.metodo === 'Efectivo')                         acum.Efectivo       += m
+    })
+    cdjRowsFull.forEach(r => {
       if (r.tipo !== 'venta' || !r.fecha || !inWk(r.fecha)) return
       const m = parseFloat(r.precio) || 0
       if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') acum.Terminal       += m
@@ -222,14 +251,22 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
       else if (r.metodo === 'Banco JORGE')                      gastoAcum['Banco JORGE'] += m
       else if (r.metodo === 'Efectivo')                         gastoAcum.Efectivo       += m
     })
+    cdjRowsFull.forEach(r => {
+      if (r.tipo !== 'salida' || !r.fecha || !inWk(r.fecha)) return
+      const m = parseFloat(r.precio) || 0
+      if (r.metodo === 'Terminal' || r.metodo === 'Banco Day' || r.metodo === 'Banco') gastoAcum.Terminal      += m
+      else if (r.metodo === 'Transferencia')                                          gastoAcum.Transferencia  += m
+      else if (r.metodo === 'Banco JORGE')                      gastoAcum['Banco JORGE'] += m
+      else if (r.metodo === 'Efectivo')                         gastoAcum.Efectivo       += m
+    })
 
     return {
-      saldoInicialEfectivo:    saldoEfBkl + saldoEfSr,
+      saldoInicialEfectivo:    saldoEfBkl + saldoEfSr + saldoEfCdj,
       saldoInicialBancosDay:   saldoBkDay,
       saldoInicialBancosJorge: saldoBkJorge,
       acum, gastoAcum,
     }
-  }, [notas, gastosFull, srRowsFull, saldosSemana, refDate, balanceActual])
+  }, [notas, gastosFull, srRowsFull, cdjRowsFull, saldosSemana, refDate, balanceActual])
 
   // Totales derivados
   const ingBancosDay    = acum.Terminal + acum.Transferencia
@@ -260,6 +297,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
 
   const rows = notasDia.map((n, i) => ({ idx: i + 1, nota: n, type: 'nota' }))
   const srRows2 = srVentasDia.map((r, i) => ({ idx: rows.length + i + 1, sr: r, type: 'sr' }))
+  const cdjRows2 = cdjVentasDia.map((r, i) => ({ idx: rows.length + srRows2.length + i + 1, sr: r, type: 'cdj' }))
 
   const folioPH = `BL${String(refDate.getFullYear()).slice(2)}${String(refDate.getMonth()+1).padStart(2,'0')}`
 
@@ -293,7 +331,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
           <span className="font-display font-bold text-ink text-sm" style={{ whiteSpace: 'nowrap' }}>Concentrado de Ingresos</span>
         </div>
         <button
-          onClick={() => exportarExcel(notas, gastosFull, srRowsFull)}
+          onClick={() => exportarExcel(notas, gastosFull, srRowsFull, cdjRowsFull)}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 14px', borderRadius: 12,
@@ -477,6 +515,38 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
                     <td className="px-2 py-1.5 border-r border-ink/10">
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 8, background: '#d9efd2', color: '#5d8a49', fontSize: 9, fontWeight: 800, letterSpacing: 0.5 }}>
                         SAN RAMÓN
+                      </span>
+                    </td>
+                    <td className="px-2 py-2.5 text-ink border-r border-ink/10" style={{ maxWidth: 180 }}>
+                      <span className="line-clamp-2 leading-tight">{sr.producto || '—'}</span>
+                    </td>
+                    <td className="px-2 py-2.5 border-r border-ink/10 font-bold text-ink whitespace-nowrap">
+                      {sr.precio ? fmtShort(parseFloat(sr.precio) || 0) : ''}
+                    </td>
+                    <td className="px-2 py-2.5 border-r border-ink/10 font-bold whitespace-nowrap" style={{ color: '#3d7a2a' }}>
+                      {sr.precio ? fmtShort(parseFloat(sr.precio) || 0) : ''}
+                    </td>
+                    <td className="px-2 py-2.5 border-r border-ink/10">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-mint-soft/60 text-green-700 border border-green-200">Pagado</span>
+                    </td>
+                    <td className="px-2 py-1.5 border-r border-ink/10">
+                      {sr.metodo && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-mint-soft/60 text-green-700">
+                          {sr.metodo}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-center text-ink/20 text-[9px]">—</td>
+                  </tr>
+                ))}
+                {/* Filas CD Judicial */}
+                {cdjRows2.map(({ idx, sr }) => (
+                  <tr key={sr.id} style={{ background: 'rgba(233,224,246,.18)' }}>
+                    <td className="px-2 py-2.5 text-ink/50 border-r border-ink/10 font-semibold w-7">{idx}</td>
+                    <td className="px-2 py-2.5 text-ink border-r border-ink/10 whitespace-nowrap">{sr.fecha}</td>
+                    <td className="px-2 py-1.5 border-r border-ink/10">
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 8, background: '#E9E0F6', color: '#6b5b95', fontSize: 9, fontWeight: 800, letterSpacing: 0.5 }}>
+                        CD JUDICIAL
                       </span>
                     </td>
                     <td className="px-2 py-2.5 text-ink border-r border-ink/10" style={{ maxWidth: 180 }}>

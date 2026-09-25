@@ -102,7 +102,7 @@ function addIngresosSheet(wb, sheetName, notas) {
   XLSX.utils.book_append_sheet(wb, wsIng, sheetName)
 }
 
-export function exportarExcel(notas = [], gastos = [], srRows = []) {
+export function exportarExcel(notas = [], gastos = [], srRows = [], cdjRows = []) {
   const wb = XLSX.utils.book_new()
 
   // ── Hoja 1: INGRESOS BKL ────────────────────────────────────────
@@ -165,6 +165,33 @@ export function exportarExcel(notas = [], gastos = [], srRows = []) {
   ]
   if (srData.length) applyMoneyFmt(wsSR, ['D'], 2, srData.length + 1)
   XLSX.utils.book_append_sheet(wb, wsSR, 'San Ramón')
+
+  // ── Hoja 4: CD JUDICIAL (ventas y salidas) ────────────────────
+  const cdjHead = ['Fecha', 'Tipo', 'Producto / Descripción', 'Monto', 'Método', 'Semana']
+
+  const cdjData = [...cdjRows]
+    .filter(r => r.producto || r.precio)
+    .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
+    .map(r => {
+      const { mon } = getWeekBounds(r.fecha + 'T12:00:00')
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
+      const fmt = d => d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+      return [
+        r.fecha || '',
+        r.tipo === 'venta' ? 'Venta' : r.tipo === 'salida' ? 'Salida' : '',
+        r.producto || '',
+        num(r.precio),
+        r.metodo || '',
+        `${fmt(mon)} – ${fmt(sun)}`,
+      ]
+    })
+
+  const wsCDJ = XLSX.utils.aoa_to_sheet([cdjHead, ...cdjData])
+  wsCDJ['!cols'] = [
+    { wch: 12 }, { wch: 10 }, { wch: 36 }, { wch: 12 }, { wch: 12 }, { wch: 20 },
+  ]
+  if (cdjData.length) applyMoneyFmt(wsCDJ, ['D'], 2, cdjData.length + 1)
+  XLSX.utils.book_append_sheet(wb, wsCDJ, 'CD Judicial')
 
   // ── Descargar ────────────────────────────────────────────────
   const now = new Date()
