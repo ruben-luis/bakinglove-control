@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { initializeFirestore, persistentLocalCache } from 'firebase/firestore'
+import { getFirestore } from 'firebase/firestore'
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -12,9 +12,13 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
-})
+// Sin persistentLocalCache: con caché persistente, las escrituras se
+// resuelven en cuanto quedan en cola local (aunque haya red), aun si el
+// servidor las rechaza después (ej. permiso de NIP aún no propagado) —
+// eso hacía que guardar() "tuviera éxito" sin haber guardado nada. Con
+// caché en memoria (default), la promesa de setDoc/deleteDoc solo se
+// resuelve cuando el servidor confirma, así los catch() sí funcionan.
+export const db = getFirestore(app)
 export const auth = getAuth(app)
 
 // Las reglas de Firestore exigen una sesión autenticada (ver firestore.rules).
