@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, X, Clock, CreditCard, Banknote, Smartphone, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Clock, CreditCard, Banknote, Smartphone, Pencil, Trash2, Search } from 'lucide-react'
 
 const NAVY      = '#1f2b5e'
 const PINK_HI   = '#fbe0ea'
@@ -30,6 +30,16 @@ const todayKey = () => {
 }
 
 const isPagada = (n) => n.estado === 'pagado' || Number(n.resta ?? Infinity) <= 0
+
+const fmtHoraRango = (hora) => {
+  if (!hora) return ''
+  const m = /^(\d{1,2}):00$/.exec(hora)
+  if (!m) return hora
+  const h = Number(m[1])
+  const per = (x) => (x % 24) < 12 ? 'am' : 'pm'
+  const h12 = (x) => { const v = x % 12; return v === 0 ? 12 : v }
+  return `${h12(h)}${per(h)}–${h12(h + 1)}${per(h + 1)}`
+}
 
 const METHOD_ICON = { Transferencia: Smartphone, Terminal: CreditCard, Efectivo: Banknote }
 
@@ -99,7 +109,7 @@ function NotaCard({ nota, onEdit, onDelete }) {
         <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:10 }}>
           {nota.horaEntrega && (
             <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#555', fontWeight:600, background:'#f3f4f6', borderRadius:8, padding:'3px 9px' }}>
-              <Clock size={12} strokeWidth={2} /> {nota.horaEntrega}
+              <Clock size={12} strokeWidth={2} /> {fmtHoraRango(nota.horaEntrega)}
             </span>
           )}
           {nota.lugarEntrega && (
@@ -222,6 +232,8 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onD
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [sel,   setSel]   = useState(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const TODAY = todayKey()
 
   const deliveryMap = useMemo(() => {
@@ -270,6 +282,25 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onD
 
   const selNotas = sel ? (deliveryMap[sel] || []) : []
 
+  const searchResults = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return notas
+      .filter(n => (n.folio || '').toLowerCase().includes(q) || (n.cliente || '').toLowerCase().includes(q))
+      .sort((a, b) => (b.fechaEntrega || '').localeCompare(a.fechaEntrega || ''))
+      .slice(0, 30)
+  }, [notas, query])
+
+  const closeSearch = () => { setSearchOpen(false); setQuery('') }
+
+  const goToNota = (n) => {
+    if (!n.fechaEntrega) return
+    const key = n.fechaEntrega.slice(0, 10)
+    const [y, m] = key.split('-').map(Number)
+    setYear(y); setMonth(m - 1); setSel(key)
+    closeSearch()
+  }
+
   return (
     <div style={{ minHeight:'100vh', background:'#f5f0e8', fontFamily:'inherit' }}>
 
@@ -284,7 +315,12 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onD
         <span style={{ fontFamily:'var(--font-display,Georgia)', fontWeight:800, fontSize:17, color:NAVY }}>
           Calendario de Entregas
         </span>
-        <div style={{ width:80 }} />
+        <button
+          onClick={() => setSearchOpen(true)}
+          style={{ display:'flex', alignItems:'center', gap:6, border:'2px solid #2b2731', borderRadius:12, background:'#f5f0e8', padding:'7px 12px', fontWeight:700, fontSize:13, color:'#2b2731', cursor:'pointer' }}
+        >
+          <Search size={16} strokeWidth={2.5} />
+        </button>
       </header>
 
       <div style={{ maxWidth:520, margin:'0 auto', padding:'20px 16px 80px' }}>
@@ -458,6 +494,80 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onD
                 </div>
               ) : (
                 selNotas.map((n, i) => <NotaCard key={n.id || i} nota={n} onEdit={onEditNota} onDelete={onDeleteNota} />)
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── BUSCADOR ── */}
+      <AnimatePresence>
+        {searchOpen && (
+          <>
+            <motion.div
+              key="search-backdrop"
+              initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+              onClick={closeSearch}
+              style={{ position:'fixed', inset:0, background:'rgba(43,39,49,.45)', zIndex:110 }}
+            />
+            <motion.div
+              key="search-panel"
+              initial={{ y:'-100%' }} animate={{ y:0 }} exit={{ y:'-100%' }}
+              transition={{ type:'spring', stiffness:340, damping:30 }}
+              style={{
+                position:'fixed', top:0, left:0, right:0, zIndex:111,
+                background:'#fff', borderBottom:'2px solid #2b2731',
+                borderRadius:'0 0 22px 22px',
+                maxHeight:'85vh', overflowY:'auto',
+                padding:'16px 16px 24px',
+              }}
+            >
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+                <div style={{ flex:1, display:'flex', alignItems:'center', gap:8, border:'2px solid #2b2731', borderRadius:12, padding:'8px 12px', background:'#f5f0e8' }}>
+                  <Search size={16} strokeWidth={2.5} color={NAVY} />
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Buscar por folio o nombre…"
+                    style={{ flex:1, border:'none', outline:'none', background:'transparent', fontSize:14, fontWeight:600, color:'#2b2731', fontFamily:'inherit' }}
+                  />
+                </div>
+                <button
+                  onClick={closeSearch}
+                  style={{ border:'2px solid #2b2731', borderRadius:10, padding:'8px', background:'#f5f0e8', cursor:'pointer', display:'flex', alignItems:'center' }}
+                >
+                  <X size={16} strokeWidth={2.5} color="#2b2731" />
+                </button>
+              </div>
+
+              {query.trim() === '' ? (
+                <div style={{ textAlign:'center', padding:'24px 0', color:'#aaa', fontWeight:700, fontSize:13 }}>
+                  Escribe un folio o nombre de cliente
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'24px 0', color:'#aaa', fontWeight:700, fontSize:13 }}>
+                  Sin resultados
+                </div>
+              ) : (
+                searchResults.map(n => (
+                  <button
+                    key={n.id}
+                    onClick={() => goToNota(n)}
+                    style={{ display:'flex', width:'100%', alignItems:'center', justifyContent:'space-between', gap:10, textAlign:'left', border:'1.5px solid #e4e4e8', borderRadius:12, padding:'10px 12px', marginBottom:8, background:'#fff', cursor:'pointer' }}
+                  >
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:800, color:'#aaa' }}>{n.folio || '—'}</div>
+                      <div style={{ fontFamily:'var(--font-display,Georgia)', fontWeight:800, fontSize:14, color:'#2b2731' }}>{n.cliente || 'Sin cliente'}</div>
+                    </div>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:NAVY }}>{fmtDate(n.fechaEntrega)}</div>
+                      {n.horaEntrega && (
+                        <div style={{ fontSize:11, color:'#888', fontWeight:600 }}>{fmtHoraRango(n.horaEntrega)}</div>
+                      )}
+                    </div>
+                  </button>
+                ))
               )}
             </motion.div>
           </>

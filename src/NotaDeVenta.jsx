@@ -34,6 +34,46 @@ const emptyG = () => ({ monto: '', fecha: todayISO(), met: null, sucursal: 'BKL'
 
 const METODOS = ['Terminal', 'Transferencia', 'Efectivo', 'Banco JORGE']
 
+// ── Franjas de entrega: 7am a 10pm, en lapsos de 1 hora ──────
+const HOUR_SLOTS = Array.from({ length: 15 }, (_, i) => i + 7) // 7..21
+const fmtHour12 = (h) => {
+  const period = (h % 24) < 12 ? 'am' : 'pm'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}${period}`
+}
+function HoraPicker({ value, onChange }) {
+  const slotOf = (h) => `${String(h).padStart(2, '0')}:00`
+  const isLegacy = value && !HOUR_SLOTS.some(h => slotOf(h) === value)
+  return (
+    <div style={{ width: '100%' }}>
+      <div className="nota-scroll" style={{ display: 'flex', gap: 6, padding: '5px 6px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        {HOUR_SLOTS.map(h => {
+          const slot = slotOf(h)
+          const on = value === slot
+          return (
+            <button key={h} type="button" onClick={() => onChange(on ? '' : slot)}
+              style={{
+                flexShrink: 0, padding: '6px 10px', borderRadius: 999,
+                border: `1.5px solid ${on ? PINK_TEXT : GRAY_LINE}`,
+                background: on ? PINK_HI : '#fff',
+                color: on ? PINK_TEXT : '#555',
+                fontWeight: on ? 800 : 600, fontSize: 12, whiteSpace: 'nowrap',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+              {fmtHour12(h)}–{fmtHour12(h + 1)}
+            </button>
+          )
+        })}
+      </div>
+      {isLegacy && (
+        <div style={{ fontSize: 10.5, color: '#aaa', padding: '0 6px 4px' }}>
+          Hora actual: {value} (elige una franja para actualizar)
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Shared table styles ──────────────────────────────────────
 const LAB = {
   background: GRAY, fontWeight: 700, padding: '0 12px',
@@ -292,7 +332,7 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
               <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Lugar de Entrega</div>
               <div style={{ flex: '1 1 120px', minHeight: 38, borderRight: `1px solid ${GRAY_LINE}` }}><FI value={lugar} onChange={e => setL(e.target.value)} placeholder="Dirección" /></div>
               <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Hora de Entrega</div>
-              <div style={{ flex: '1 1 80px', minHeight: 38 }}><FI type="time" value={hora} onChange={e => setH(e.target.value)} /></div>
+              <div style={{ flex: '1 1 160px', minHeight: 38, display: 'flex', alignItems: 'center' }}><HoraPicker value={hora} onChange={setH} /></div>
             </div>
             {/* Costo + Contacto */}
             <div style={{ display: 'flex', flexWrap: 'wrap' }}>
