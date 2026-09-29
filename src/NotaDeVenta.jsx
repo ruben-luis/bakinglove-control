@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { ArrowLeft, Save, Plus, Phone, MapPin, FileDown, CalendarDays, Clock } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowLeft, Save, Plus, Phone, MapPin, FileDown, CalendarDays, Clock, X } from 'lucide-react'
 import { printNota } from './printNota'
 
 // ── Design tokens ────────────────────────────────────────────
@@ -52,7 +53,7 @@ function HoraPicker({ value, onChange }) {
 
   return (
     <div style={{ width: '100%' }}>
-      <button type="button" onClick={() => setOpen(o => !o)}
+      <button type="button" onClick={() => setOpen(true)}
         style={{
           width: '100%', minHeight: 38, padding: '0 10px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
@@ -63,30 +64,61 @@ function HoraPicker({ value, onChange }) {
         {label}
         <Clock size={16} strokeWidth={2} color={PINK_TEXT} style={{ flexShrink: 0 }} />
       </button>
-      {open && (
-        <div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${GRAY_LINE}`, borderTop: `1px solid ${GRAY_LINE}` }}>
-          {isLegacy && (
-            <div style={{ fontSize: 10.5, color: '#aaa', padding: '6px 12px', borderBottom: `1px solid ${GRAY_LINE}` }}>
-              Hora actual: {value} — elige una franja para actualizar
-            </div>
-          )}
-          {HOUR_SLOTS.map(h => {
-            const slot = slotOf(h)
-            const on = value === slot
-            return (
-              <button key={h} type="button" onClick={() => { onChange(on ? '' : slot); setOpen(false) }}
-                style={{
-                  textAlign: 'left', padding: '9px 12px', border: 'none',
-                  borderBottom: `1px solid ${GRAY}`,
-                  background: on ? PINK_HI : '#fff', color: on ? PINK_TEXT : '#444',
-                  fontWeight: on ? 800 : 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                {fmtHour12(h)}–{fmtHour12(h + 1)}
-              </button>
-            )
-          })}
-        </div>
-      )}
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              key="hora-backdrop"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setOpen(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(43,39,49,.45)', zIndex: 200 }}
+            />
+            <motion.div
+              key="hora-panel"
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+              style={{
+                position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 201,
+                background: '#fff', borderTop: `2px solid ${NAVY}`,
+                borderRadius: '18px 18px 0 0', maxHeight: '70vh', overflowY: 'auto',
+                padding: '0 0 24px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 2px' }}>
+                <div style={{ width: 36, height: 4, borderRadius: 999, background: GRAY_LINE }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 16px 10px' }}>
+                <span style={{ fontWeight: 800, fontSize: 15, color: NAVY, fontFamily: 'var(--font-display,Georgia)' }}>Hora de entrega</span>
+                <button type="button" onClick={() => setOpen(false)}
+                  style={{ border: `1.5px solid ${GRAY_LINE}`, borderRadius: 8, padding: 5, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  <X size={14} strokeWidth={2.5} color="#2b2731" />
+                </button>
+              </div>
+              {isLegacy && (
+                <div style={{ fontSize: 11, color: '#aaa', padding: '0 16px 8px' }}>
+                  Hora actual: {value} — elige una franja para actualizar
+                </div>
+              )}
+              {HOUR_SLOTS.map(h => {
+                const slot = slotOf(h)
+                const on = value === slot
+                return (
+                  <button key={h} type="button" onClick={() => { onChange(on ? '' : slot); setOpen(false) }}
+                    style={{
+                      display: 'block', width: '100%', textAlign: 'left', padding: '12px 16px',
+                      border: 'none', borderBottom: `1px solid ${GRAY}`,
+                      background: on ? PINK_HI : '#fff', color: on ? PINK_TEXT : '#333',
+                      fontWeight: on ? 800 : 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                    {fmtHour12(h)}–{fmtHour12(h + 1)}
+                  </button>
+                )
+              })}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
