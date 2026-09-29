@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ArrowLeft, Save, Plus, Phone, MapPin, FileDown, CalendarDays } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Phone, MapPin, FileDown, CalendarDays, Clock } from 'lucide-react'
 import { printNota } from './printNota'
 
 // ── Design tokens ────────────────────────────────────────────
@@ -42,32 +42,49 @@ const fmtHour12 = (h) => {
   return `${h12}${period}`
 }
 function HoraPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false)
   const slotOf = (h) => `${String(h).padStart(2, '0')}:00`
-  const isLegacy = value && !HOUR_SLOTS.some(h => slotOf(h) === value)
+  const matched  = HOUR_SLOTS.find(h => slotOf(h) === value)
+  const isLegacy = value && matched === undefined
+  const label = matched !== undefined
+    ? `${fmtHour12(matched)}–${fmtHour12(matched + 1)}`
+    : isLegacy ? value : 'Seleccionar hora'
+
   return (
     <div style={{ width: '100%' }}>
-      <div className="nota-scroll" style={{ display: 'flex', gap: 6, padding: '5px 6px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        {HOUR_SLOTS.map(h => {
-          const slot = slotOf(h)
-          const on = value === slot
-          return (
-            <button key={h} type="button" onClick={() => onChange(on ? '' : slot)}
-              style={{
-                flexShrink: 0, padding: '6px 10px', borderRadius: 999,
-                border: `1.5px solid ${on ? PINK_TEXT : GRAY_LINE}`,
-                background: on ? PINK_HI : '#fff',
-                color: on ? PINK_TEXT : '#555',
-                fontWeight: on ? 800 : 600, fontSize: 12, whiteSpace: 'nowrap',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-              {fmtHour12(h)}–{fmtHour12(h + 1)}
-            </button>
-          )
-        })}
-      </div>
-      {isLegacy && (
-        <div style={{ fontSize: 10.5, color: '#aaa', padding: '0 6px 4px' }}>
-          Hora actual: {value} (elige una franja para actualizar)
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', minHeight: 38, padding: '0 10px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 14, fontWeight: (matched !== undefined || isLegacy) ? 700 : 400,
+          color: (matched !== undefined || isLegacy) ? '#2b2731' : '#bbb',
+        }}>
+        {label}
+        <Clock size={16} strokeWidth={2} color={PINK_TEXT} style={{ flexShrink: 0 }} />
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${GRAY_LINE}`, borderTop: `1px solid ${GRAY_LINE}` }}>
+          {isLegacy && (
+            <div style={{ fontSize: 10.5, color: '#aaa', padding: '6px 12px', borderBottom: `1px solid ${GRAY_LINE}` }}>
+              Hora actual: {value} — elige una franja para actualizar
+            </div>
+          )}
+          {HOUR_SLOTS.map(h => {
+            const slot = slotOf(h)
+            const on = value === slot
+            return (
+              <button key={h} type="button" onClick={() => { onChange(on ? '' : slot); setOpen(false) }}
+                style={{
+                  textAlign: 'left', padding: '9px 12px', border: 'none',
+                  borderBottom: `1px solid ${GRAY}`,
+                  background: on ? PINK_HI : '#fff', color: on ? PINK_TEXT : '#444',
+                  fontWeight: on ? 800 : 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                {fmtHour12(h)}–{fmtHour12(h + 1)}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
@@ -328,11 +345,11 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
               <div style={{ flex: 1 }}><FI value={cli} onChange={e => setC(e.target.value)} placeholder="Nombre del cliente" /></div>
             </div>
             {/* Lugar + Hora (flex-wrap para que se apile en móvil) */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: `1px solid ${GRAY_LINE}` }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', borderBottom: `1px solid ${GRAY_LINE}` }}>
               <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 120, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Lugar de Entrega</div>
               <div style={{ flex: '1 1 120px', minHeight: 38, borderRight: `1px solid ${GRAY_LINE}` }}><FI value={lugar} onChange={e => setL(e.target.value)} placeholder="Dirección" /></div>
               <div className="nota-field-label" style={{ ...LAB, display: 'flex', alignItems: 'center', flexShrink: 0, minWidth: 100, borderBottom: 0, borderRight: `1px solid ${GRAY_LINE}` }}>Hora de Entrega</div>
-              <div style={{ flex: '1 1 160px', minHeight: 38, display: 'flex', alignItems: 'center' }}><HoraPicker value={hora} onChange={setH} /></div>
+              <div style={{ flex: '1 1 160px', minHeight: 38 }}><HoraPicker value={hora} onChange={setH} /></div>
             </div>
             {/* Costo + Contacto */}
             <div style={{ display: 'flex', flexWrap: 'wrap' }}>
