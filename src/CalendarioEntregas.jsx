@@ -1,6 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { collection, query as fsQuery, where, onSnapshot, getDocs } from 'firebase/firestore'
 import { ChevronLeft, ChevronRight, X, Clock, CreditCard, Banknote, Smartphone, Pencil, Trash2, Search } from 'lucide-react'
+import { db } from './firebase'
+import { isNotaCongelada } from './balance'
 
 const NAVY      = '#1f2b5e'
 const PINK_HI   = '#fbe0ea'
@@ -227,25 +230,59 @@ function NotaCard({ nota, onEdit, onDelete }) {
   )
 }
 
-export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onDeleteNota }) {
+export default function CalendarioEntregas({ onBack, onEditNota, onDeleteNota }) {
   const today  = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [sel,   setSel]   = useState(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [pendingReopen, setPendingReopen] = useState(null)
+  const [monthNotas, setMonthNotas] = useState([])
+  const [searchNotas, setSearchNotas] = useState(null)
   const TODAY = todayKey()
+
+  // Consulta acotada al mes visible (por fechaEntrega): el prop `notas` de
+  // App.jsx solo cubre el mes en curso (+gracia), así que una entrega futura
+  // o pasada de una nota ya "congelada" (sin ediciones recientes) desaparecía
+  // del calendario. Aquí se pide directamente el mes que se está mostrando.
+  useEffect(() => {
+    const pad = String(month + 1).padStart(2, '0')
+    const monthStart = `${year}-${pad}-01`
+    const nextY = month === 11 ? year + 1 : year
+    const nextM = month === 11 ? 1 : month + 2
+    const monthEnd = `${nextY}-${String(nextM).padStart(2, '0')}-01`
+    const unsub = onSnapshot(
+      fsQuery(collection(db, 'notas'),
+        where('fechaEntrega', '>=', monthStart),
+        where('fechaEntrega', '<', monthEnd)),
+      snap => setMonthNotas(snap.docs.map(d => d.data()))
+    )
+    return () => unsub()
+  }, [year, month])
+
+  // Buscador perezoso: solo trae el historial completo de notas la primera
+  // vez que se abre el buscador (folio/cliente pueden estar en cualquier mes).
+  useEffect(() => {
+    if (!searchOpen || searchNotas !== null) return
+    getDocs(collection(db, 'notas')).then(snap => setSearchNotas(snap.docs.map(d => d.data())))
+  }, [searchOpen, searchNotas])
+
+  function handleEditClick(nota) {
+    if (isNotaCongelada(nota)) setPendingReopen(nota)
+    else onEditNota?.(nota)
+  }
 
   const deliveryMap = useMemo(() => {
     const map = {}
-    notas.forEach(n => {
+    monthNotas.forEach(n => {
       if (!n.fechaEntrega) return
       const key = n.fechaEntrega.slice(0, 10)
       if (!map[key]) map[key] = []
       map[key].push(n)
     })
     return map
-  }, [notas])
+  }, [monthNotas])
 
   const grid = useMemo(() => {
     const firstDay = new Date(year, month, 1)
@@ -262,14 +299,10 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onD
   }, [year, month, deliveryMap])
 
   const monthStats = useMemo(() => {
-    const prefix = `${year}-${String(month+1).padStart(2,'0')}`
-    const mes = Object.entries(deliveryMap)
-      .filter(([k]) => k.startsWith(prefix))
-      .flatMap(([, ns]) => ns)
-    const total     = mes.length
-    const pagados   = mes.filter(isPagada).length
+    const total     = monthNotas.length
+    const pagados   = monthNotas.filter(isPagada).length
     return { total, pagados, pendientes: total - pagados }
-  }, [deliveryMap, year, month])
+  }, [monthNotas])
 
   const prevMonth = () => {
     if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1)
@@ -284,12 +317,12 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onD
 
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return []
-    return notas
+    if (!q || !searchNotas) return []
+    return searchNotas
       .filter(n => (n.folio || '').toLowerCase().includes(q) || (n.cliente || '').toLowerCase().includes(q))
       .sort((a, b) => (b.fechaEntrega || '').localeCompare(a.fechaEntrega || ''))
       .slice(0, 30)
-  }, [notas, query])
+  }, [searchNotas, query])
 
   const closeSearch = () => { setSearchOpen(false); setQuery('') }
 
@@ -493,7 +526,7 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onD
                   Sin entregas para este día
                 </div>
               ) : (
-                selNotas.map((n, i) => <NotaCard key={n.id || i} nota={n} onEdit={onEditNota} onDelete={onDeleteNota} />)
+                selNotas.map((n, i) => <NotaCard key={n.id || i} nota={n} onEdit={handleEditClick} onDelete={onDeleteNota} />)
               )}
             </motion.div>
           </>
@@ -569,6 +602,51 @@ export default function CalendarioEntregas({ notas = [], onBack, onEditNota, onD
                   </button>
                 ))
               )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── CONFIRMACIÓN REABRIR NOTA CONGELADA ── */}
+      <AnimatePresence>
+        {pendingReopen && (
+          <>
+            <motion.div
+              key="reopen-backdrop"
+              initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+              onClick={() => setPendingReopen(null)}
+              style={{ position:'fixed', inset:0, background:'rgba(43,39,49,.45)', zIndex:120 }}
+            />
+            <motion.div
+              key="reopen-modal"
+              initial={{ scale:.95, opacity:0 }} animate={{ scale:1, opacity:1 }} exit={{ scale:.95, opacity:0 }}
+              style={{
+                position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:121,
+                background:'#fff', border:'2px solid #2b2731', borderRadius:18,
+                padding:'20px 20px', width:'calc(100% - 48px)', maxWidth:360,
+                boxShadow:'4px 4px 0 #2b2731',
+              }}
+            >
+              <h3 style={{ fontFamily:'var(--font-display,Georgia)', fontWeight:800, fontSize:16, color:NAVY, margin:'0 0 10px' }}>
+                Nota de un periodo cerrado
+              </h3>
+              <p style={{ fontSize:13, color:'#555', fontWeight:600, lineHeight:1.4, margin:'0 0 18px' }}>
+                Esta nota es de un mes ya cerrado. Al guardar cambios se reabrirá y volverá a sincronizarse en tiempo real.
+              </p>
+              <div style={{ display:'flex', gap:8 }}>
+                <button
+                  onClick={() => setPendingReopen(null)}
+                  style={{ flex:1, padding:'10px', borderRadius:10, border:'1.5px solid #bfbfc6', background:'#fff', color:'#555', fontSize:13, fontWeight:700, cursor:'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => { onEditNota?.(pendingReopen); setPendingReopen(null) }}
+                  style={{ flex:1, padding:'10px', borderRadius:10, border:'none', background:NAVY, color:'#fff', fontSize:13, fontWeight:800, cursor:'pointer' }}
+                >
+                  Continuar
+                </button>
+              </div>
             </motion.div>
           </>
         )}

@@ -387,7 +387,7 @@ export default function App() {
   } else if (view === 'gastos') {
     content = <ConcentradoGastos weekStart={balanceActual?.weekStart} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
-    content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} onDeleteNota={handleDeleteNota} />
+    content = <CalendarioEntregas onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} onDeleteNota={handleDeleteNota} />
   } else if (view === 'sanramon') {
     content = <SanRamonView onBack={() => setView('dashboard')} weekStart={balanceActual?.weekStart} />
   } else if (view === 'cdjudicial') {
