@@ -1,5 +1,8 @@
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { ArrowLeft, FileDown, ChevronDown, X, Plus, Save, Trash2 } from 'lucide-react'
+import { db } from './firebase'
+import { isNotaCongelada } from './balance'
 import { printNota } from './printNota'
 
 const LINK      = '#1a51c4'
@@ -366,9 +369,32 @@ function EditModal({ nota, onClose, onSave, onDelete }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete }) {
+export default function HistorialNotas({ onBack, onEdit, onDelete }) {
   const [editando,   setEditando]  = useState(null)
+  const [pendingReopen, setPendingReopen] = useState(null)
   const [filterDate, setFilterDate] = useState(todayISO)
+  const [notasDia, setNotasDia] = useState([])
+
+  // Consulta acotada al día visible (por createdAt): así el historial no
+  // depende de la ventana "viva" de notas de App.jsx (esa se congela fuera
+  // del mes en curso) y puede navegar a cualquier día sin perder datos.
+  useEffect(() => {
+    const dayStart = new Date(filterDate + 'T00:00:00')
+    const dayEnd = new Date(dayStart)
+    dayEnd.setDate(dayEnd.getDate() + 1)
+    const unsub = onSnapshot(
+      query(collection(db, 'notas'),
+        where('createdAt', '>=', dayStart.toISOString()),
+        where('createdAt', '<', dayEnd.toISOString())),
+      snap => setNotasDia(snap.docs.map(d => d.data()))
+    )
+    return () => unsub()
+  }, [filterDate])
+
+  function handleEditClick(nota) {
+    if (isNotaCongelada(nota)) setPendingReopen(nota)
+    else setEditando(nota)
+  }
 
   const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   const prevDay = () => {
@@ -390,14 +416,14 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
   }
 
   const filteredNotas = useMemo(() =>
-    notas
-      .filter(n => creacionDay(n) === filterDate)
+    notasDia
+      .slice()
       .sort((a, b) => {
         const aNum = parseInt(a.folio?.replace('#', '') || '0')
         const bNum = parseInt(b.folio?.replace('#', '') || '0')
         return bNum - aNum
       })
-  , [filterDate, notas])
+  , [notasDia])
 
   const groups = []
   const seen = new Map()
@@ -520,7 +546,7 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
                         <td style={{ ...TD(), textAlign: 'center' }}>{fmtEntrega(nota.fechaEntrega)}</td>
                         <td style={{ ...TD(), textAlign: 'center' }}><StatusBadge estado={nota.estado} /></td>
                         <td style={{ ...TD(), textAlign: 'center' }}>
-                          <button onClick={() => setEditando(nota)}
+                          <button onClick={() => handleEditClick(nota)}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontWeight: 700, fontSize: 11, background: NAVY, border: 'none', borderRadius: 5, padding: '3px 9px', cursor: 'pointer', fontFamily: 'inherit' }}>
                             Editar
                           </button>
@@ -583,7 +609,7 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setEditando(nota)}
+                      <button onClick={() => handleEditClick(nota)}
                         style={{ flex: 1, padding: '9px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Editar nota
                       </button>
@@ -600,6 +626,31 @@ export default function HistorialNotas({ notas = [], onBack, onEdit, onDelete })
 
         </div>
       </div>
+
+      {/* Aviso de reapertura (nota de un periodo ya cerrado) */}
+      {pendingReopen && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.5)' }}
+          onClick={e => { if (e.target === e.currentTarget) setPendingReopen(null) }}
+        >
+          <div style={{ background: '#fff', borderRadius: 16, padding: 22, maxWidth: 360, width: '90%', textAlign: 'center', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
+            <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8, color: HEAD_INK }}>Nota de un periodo cerrado</div>
+            <div style={{ fontSize: 13, color: '#666', marginBottom: 18, lineHeight: 1.4 }}>
+              Esta nota es de un mes ya cerrado. Al guardar cambios se reabrirá y volverá a sincronizarse en tiempo real.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setPendingReopen(null)}
+                style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Cancelar
+              </button>
+              <button onClick={() => { setEditando(pendingReopen); setPendingReopen(null) }}
+                style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {editando && (

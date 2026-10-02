@@ -381,7 +381,7 @@ export default function App() {
       onUpdate={nota => { handleEditNota(nota); setView('calendario'); setEditingNota(null) }}
     />
   } else if (view === 'historial') {
-    content = <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
+    content = <HistorialNotas onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
   } else if (view === 'concentrado') {
     content = <ConcentradoIngresos saldosSemana={saldosSemana} balanceActual={balanceActual} onBack={() => setView('dashboard')} />
   } else if (view === 'gastos') {
