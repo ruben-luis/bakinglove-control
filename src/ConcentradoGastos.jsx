@@ -125,23 +125,29 @@ function SaldoRow({ label, value, last = false }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
+export default function ConcentradoGastos({ weekStart, onBack }) {
   const now = new Date()
   const [refDate,    setRefDate]    = useState(now)
   const [saved,      setSaved]      = useState(false)
   const [saveError,  setSaveError]  = useState(null)
   const [filterDate, setFilterDate] = useState(todayISO)
 
-  // Historial COMPLETO de gastos y sanramon_rows, propio de esta pantalla —
-  // independiente del listener acotado de App.jsx (ese solo alimenta el
-  // Dashboard). Necesario para no perder/mal-calcular meses fuera de esa
-  // ventana al guardar, y para el acumulado de salidas SR.
+  // Historial COMPLETO de notas, gastos y sanramon_rows, propio de esta
+  // pantalla — independiente del listener acotado de App.jsx (ese solo
+  // alimenta el Dashboard, y para notas solo trae las "vivas" del mes en
+  // curso). Necesario para no perder/mal-calcular meses fuera de esa
+  // ventana al guardar, para el acumulado de salidas SR, y para que el
+  // export a Excel incluya el historial completo de notas.
+  const [notasFull, setNotasFull] = useState([])
   const [gastosFull, setGastosFull] = useState([])
   const [srRowsFull, setSrRowsFull] = useState([])
   const [cdjRowsFull, setCdjRowsFull] = useState([])
   const [gastosReady, setGastosReady] = useState(false)
 
   useEffect(() => {
+    const unsubNotas = onSnapshot(collection(db, 'notas'), snap => {
+      setNotasFull(snap.docs.map(d => d.data()))
+    })
     const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => {
       setGastosFull(snap.docs.map(d => d.data()))
       setGastosReady(true)
@@ -152,7 +158,7 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
     const unsubCDJ = onSnapshot(collection(db, 'cdjudicial_rows'), snap => {
       setCdjRowsFull(snap.docs.map(d => d.data()))
     })
-    return () => { unsubGastos(); unsubSR(); unsubCDJ() }
+    return () => { unsubNotas(); unsubGastos(); unsubSR(); unsubCDJ() }
   }, [])
 
   const week = getWeekRange(refDate)
@@ -338,7 +344,7 @@ export default function ConcentradoGastos({ notas = [], weekStart, onBack }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
-            onClick={() => exportarExcel(notas, gastosFull, srRowsFull, cdjRowsFull)}
+            onClick={() => exportarExcel(notasFull, gastosFull, srRowsFull, cdjRowsFull)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 14px', borderRadius: 12,

@@ -75,20 +75,25 @@ function getMondayISO(date) {
   return toISO(d)
 }
 
-export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceActual = null, onBack }) {
+export default function ConcentradoIngresos({ saldosSemana = [], balanceActual = null, onBack }) {
   const now  = new Date()
 
-  // Historial COMPLETO de gastos y sanramon_rows, propio de esta pantalla
-  // (solo lectura) — independiente del listener acotado de App.jsx, que
-  // solo alimenta el Dashboard con "esta semana".
+  // Historial COMPLETO de notas, gastos y sanramon_rows, propio de esta
+  // pantalla (solo lectura) — independiente del listener acotado de
+  // App.jsx (que para notas solo trae las "vivas" del mes en curso, y
+  // para gastos/sanramon_rows solo alimenta el Dashboard con "esta
+  // semana"). Esta pantalla sí necesita el historial completo para
+  // reconstruir saldos de semanas anteriores y para el export a Excel.
+  const [notasFull, setNotasFull] = useState([])
   const [gastosFull, setGastosFull] = useState([])
   const [srRowsFull, setSrRowsFull] = useState([])
   const [cdjRowsFull, setCdjRowsFull] = useState([])
   useEffect(() => {
+    const unsubNotas = onSnapshot(collection(db, 'notas'), snap => setNotasFull(snap.docs.map(d => d.data())))
     const unsubGastos = onSnapshot(collection(db, 'gastos'), snap => setGastosFull(snap.docs.map(d => d.data())))
     const unsubSR = onSnapshot(collection(db, 'sanramon_rows'), snap => setSrRowsFull(snap.docs.map(d => d.data())))
     const unsubCDJ = onSnapshot(collection(db, 'cdjudicial_rows'), snap => setCdjRowsFull(snap.docs.map(d => d.data())))
-    return () => { unsubGastos(); unsubSR(); unsubCDJ() }
+    return () => { unsubNotas(); unsubGastos(); unsubSR(); unsubCDJ() }
   }, [])
 
   const [refDate,    setRefDate]    = useState(now)
@@ -106,7 +111,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
   }
 
   // Tabla: notas del mes filtradas por día (por createdAt)
-  const notasMes = notas.filter(n => {
+  const notasMes = notasFull.filter(n => {
     const d = new Date(n.createdAt)
     return d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear()
   })
@@ -157,7 +162,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
       prevCdjBancoJorgeS     = balanceActual.prevCdjBancoJorgeS     ?? 0
     } else {
       // Semana anterior: usar historial completo (gastosFull/srRowsFull/cdjRowsFull)
-      notas.forEach(n => (n.pagos||[]).forEach(p => {
+      notasFull.forEach(n => (n.pagos||[]).forEach(p => {
         const pf = p.fecha || n.createdAt
         if (!beforeWk(pf)) return
         if (p.sucursal === 'SR' || p.sucursal === 'CDJ') return
@@ -204,7 +209,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
 
     // Acumulado ingresos: pagos de ESTA semana (por fecha del pago)
     const acum = { Terminal: 0, Transferencia: 0, Efectivo: 0, 'Banco JORGE': 0 }
-    notas.forEach(n => (n.pagos||[]).forEach(p => {
+    notasFull.forEach(n => (n.pagos||[]).forEach(p => {
       const pf = p.fecha || n.createdAt
       if (!inWk(pf)) return
       if (p.sucursal === 'SR' || p.sucursal === 'CDJ') return  // ya está en srRowsFull/cdjRowsFull como fromNota
@@ -266,7 +271,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
       saldoInicialBancosJorge: saldoBkJorge,
       acum, gastoAcum,
     }
-  }, [notas, gastosFull, srRowsFull, cdjRowsFull, saldosSemana, refDate, balanceActual])
+  }, [notasFull, gastosFull, srRowsFull, cdjRowsFull, saldosSemana, refDate, balanceActual])
 
   // Totales derivados
   const ingBancosDay    = acum.Terminal + acum.Transferencia
@@ -331,7 +336,7 @@ export default function ConcentradoIngresos({ notas, saldosSemana = [], balanceA
           <span className="font-display font-bold text-ink text-sm" style={{ whiteSpace: 'nowrap' }}>Concentrado de Ingresos</span>
         </div>
         <button
-          onClick={() => exportarExcel(notas, gastosFull, srRowsFull, cdjRowsFull)}
+          onClick={() => exportarExcel(notasFull, gastosFull, srRowsFull, cdjRowsFull)}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 14px', borderRadius: 12,

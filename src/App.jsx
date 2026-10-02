@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore'
 import {
   getCurrentMonday, rolloverBalance, computeBalanceFull,
-  notaBalanceDelta, isZeroDelta, addDelta,
+  notaBalanceDelta, isZeroDelta, addDelta, getNotasCutoffISO,
 } from './balance'
 import { toIncrements } from './balanceSync'
 import Dashboard from './Dashboard'
@@ -82,7 +82,7 @@ export default function App() {
     authReady.then(() => {
       if (cancelled) return
       unsubNotas = onSnapshot(
-        collection(db, 'notas'),
+        query(collection(db, 'notas'), where('updatedAt', '>=', getNotasCutoffISO())),
         { includeMetadataChanges: true },
         snap => {
           setNotas(snap.docs.map(d => d.data()))
@@ -155,6 +155,14 @@ export default function App() {
   useEffect(() => {
     if (!serverSynced) return
     const weekStart = getCurrentMonday()
+    // Si el balance que ya tenemos en memoria (vía el listener de arriba)
+    // confirma que no hace falta avanzar de semana, nos ahorramos las 3
+    // lecturas completas de abajo (~2000 docs) en cada carga de app. Si
+    // balanceActual todavía no llegó (null) seguimos por el camino de
+    // siempre: la transacción de más abajo vuelve a comprobarlo contra el
+    // servidor de todos modos, así que esto es solo una optimización de
+    // costo, nunca un riesgo de saltarse un avance real.
+    if (balanceActual && balanceActual.weekStart >= weekStart) return
     const balRef = doc(db, 'config', 'balance_actual')
 
     // gastos/sanramon_rows en memoria están acotados a las últimas
@@ -189,7 +197,7 @@ export default function App() {
         // cuadrada.
       })
     }).catch(console.error)
-  }, [serverSynced]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [serverSynced, balanceActual]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // ── Aplica un delta de balance de forma atómica (increment) ──
@@ -375,9 +383,9 @@ export default function App() {
   } else if (view === 'historial') {
     content = <HistorialNotas notas={notas} onBack={() => setView('dashboard')} onEdit={handleEditNota} onDelete={handleDeleteNota} />
   } else if (view === 'concentrado') {
-    content = <ConcentradoIngresos notas={notas} saldosSemana={saldosSemana} balanceActual={balanceActual} onBack={() => setView('dashboard')} />
+    content = <ConcentradoIngresos saldosSemana={saldosSemana} balanceActual={balanceActual} onBack={() => setView('dashboard')} />
   } else if (view === 'gastos') {
-    content = <ConcentradoGastos notas={notas} weekStart={balanceActual?.weekStart} onBack={() => setView('dashboard')} />
+    content = <ConcentradoGastos weekStart={balanceActual?.weekStart} onBack={() => setView('dashboard')} />
   } else if (view === 'calendario') {
     content = <CalendarioEntregas notas={notas} onBack={() => setView('dashboard')} onEditNota={nota => { setEditingNota(nota); setView('editNota') }} onDeleteNota={handleDeleteNota} />
   } else if (view === 'sanramon') {

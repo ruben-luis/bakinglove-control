@@ -13,6 +13,22 @@ export function getNextMonday(mondayISO) {
   return iso(d)
 }
 
+// Ventana de notas "vivas": el mes en curso completo, más el mes anterior
+// durante su primera semana (le da tiempo a la contadora de cerrar cuentas
+// antes de que esas notas se dejen de sincronizar en tiempo real). Fuera de
+// esta ventana una nota está "congelada": sigue existiendo en Firestore,
+// pero hay que pedirla aparte (getDoc) para volver a editarla.
+export function getNotasCutoffISO() {
+  const now = new Date()
+  const d = new Date(now.getFullYear(), now.getMonth(), 1)
+  if (now.getDate() <= 7) d.setMonth(d.getMonth() - 1)
+  return iso(d)
+}
+
+export function isNotaCongelada(nota, cutoffISO = getNotasCutoffISO()) {
+  return before(nota?.updatedAt, cutoffISO)
+}
+
 function iso(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
