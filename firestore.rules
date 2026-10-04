@@ -123,6 +123,22 @@ service cloud.firestore {
            ]);
     }
 
+    // ── config/membresia: anuncio temporal de pago. Cualquier sesión
+    // puede leerlo (para mostrar el aviso) y crearlo si no existe aún
+    // (bootstrap automático al abrir la app, igual que balance_actual).
+    // No hay "update" permitido desde el cliente a propósito: el NIP
+    // del negocio ya lo conoce la propietaria, así que no sirve como
+    // control de acceso para marcar el pago. Eso se hace a mano desde
+    // la consola de Firebase (que no pasa por estas reglas), para que
+    // solo quien tiene acceso a esa consola pueda apagar el aviso.
+    match /config/membresia {
+      allow read: if isAuthed();
+      allow create: if isAuthed()
+        && request.resource.data.keys().hasOnly(['fechaLimite', 'pagado'])
+        && request.resource.data.fechaLimite is string
+        && request.resource.data.pagado is bool;
+    }
+
     match /config/folio_counter {
       allow read: if isAuthed();
       allow write: if isAuthed()

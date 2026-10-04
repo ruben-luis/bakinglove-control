@@ -21,6 +21,7 @@ import CdJudicialView from './CdJudicialView'
 import HistorialCortes from './HistorialCortes'
 import PinModal, { savePin } from './PinModal'
 import CdjWelcomeModal from './CdjWelcomeModal'
+import AnuncioMembresia from './AnuncioMembresia'
 import { isCdjLive } from './cdjLaunch'
 
 // Ventana de retención para los listeners "siempre activos" de gastos y
@@ -49,6 +50,8 @@ export default function App() {
   const [editingNota,   setEditingNota]  = useState(null)
   const [balanceActual, setBalanceActual] = useState(null)
   const [showCdjWelcome, setShowCdjWelcome] = useState(false)
+  const [membresia, setMembresia] = useState(null)
+  const [anuncioMembresiaCerrado, setAnuncioMembresiaCerrado] = useState(false)
 
   // ── Modal de bienvenida CD Judicial (una sola vez, tras el lanzamiento) ──
   useEffect(() => {
@@ -145,6 +148,41 @@ export default function App() {
     }).catch(console.error)
     return () => { cancelled = true; unsub() }
   }, [])
+
+  // ── Anuncio temporal de pago de membresía (ver config/membresia) ─
+  // Se muestra mientras pagado !== true y hoy == fechaLimite. No hay
+  // botón en la app para marcarlo pagado (el NIP del negocio ya lo
+  // conoce la propietaria, así que no sirve como control de acceso
+  // aquí): se marca pagado:true a mano desde la consola de Firebase.
+  // El listener apaga el anuncio en tiempo real en cualquier
+  // dispositivo que lo tenga abierto en cuanto eso ocurre.
+  useEffect(() => {
+    let unsub = () => {}
+    let cancelled = false
+    authReady.then(() => {
+      if (cancelled) return
+      const membresiaRef = doc(db, 'config', 'membresia')
+      unsub = onSnapshot(membresiaRef, snap => {
+        if (snap.exists()) {
+          setMembresia(snap.data())
+        } else {
+          const inicial = { fechaLimite: '2026-10-05', pagado: false }
+          setDoc(membresiaRef, inicial).catch(console.error)
+          setMembresia(inicial)
+        }
+      })
+    }).catch(console.error)
+    return () => { cancelled = true; unsub() }
+  }, [])
+
+  const hoyISO = (() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })()
+  const mostrarAnuncioMembresia = !!membresia
+    && membresia.pagado !== true
+    && membresia.fechaLimite === hoyISO
+    && !anuncioMembresiaCerrado
 
   // ── Avance de semana (rollover), protegido con transacción ───
   // Se dispara una vez por carga de app. runTransaction garantiza que
@@ -431,6 +469,9 @@ export default function App() {
           onGoToCdj={() => { dismissCdjWelcome(); setView('cdjudicial') }}
           onClose={dismissCdjWelcome}
         />
+      )}
+      {mostrarAnuncioMembresia && !pinAction && (
+        <AnuncioMembresia onClose={() => setAnuncioMembresiaCerrado(true)} />
       )}
     </>
   )
