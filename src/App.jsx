@@ -20,9 +20,7 @@ import SanRamonView from './SanRamonView'
 import CdJudicialView from './CdJudicialView'
 import HistorialCortes from './HistorialCortes'
 import PinModal, { savePin } from './PinModal'
-import CdjWelcomeModal from './CdjWelcomeModal'
 import AnuncioMembresia from './AnuncioMembresia'
-import { isCdjLive } from './cdjLaunch'
 
 // Ventana de retención para los listeners "siempre activos" de gastos y
 // sanramon_rows: Dashboard (la pantalla abierta todo el día) solo necesita
@@ -49,16 +47,8 @@ export default function App() {
   const [serverSynced,  setServerSynced] = useState(false)
   const [editingNota,   setEditingNota]  = useState(null)
   const [balanceActual, setBalanceActual] = useState(null)
-  const [showCdjWelcome, setShowCdjWelcome] = useState(false)
   const [membresia, setMembresia] = useState(null)
   const [anuncioMembresiaCerrado, setAnuncioMembresiaCerrado] = useState(false)
-
-  // ── Modal de bienvenida CD Judicial (una sola vez, tras el lanzamiento) ──
-  useEffect(() => {
-    if (isCdjLive() && localStorage.getItem('cdj_welcome_shown') !== '1') {
-      setShowCdjWelcome(true)
-    }
-  }, [])
 
   // ── Suscripción en tiempo real a Firestore ────────────────────
   // Espera a que exista sesión (authReady) antes de suscribirse: las
@@ -447,11 +437,6 @@ export default function App() {
     )
   }
 
-  const dismissCdjWelcome = () => {
-    localStorage.setItem('cdj_welcome_shown', '1')
-    setShowCdjWelcome(false)
-  }
-
   return (
     <>
       {content}
@@ -462,12 +447,6 @@ export default function App() {
           mode={pinMode}
           onSuccess={handlePinSuccess}
           onCancel={() => setPinAction(null)}
-        />
-      )}
-      {showCdjWelcome && (
-        <CdjWelcomeModal
-          onGoToCdj={() => { dismissCdjWelcome(); setView('cdjudicial') }}
-          onClose={dismissCdjWelcome}
         />
       )}
       {mostrarAnuncioMembresia && !pinAction && (
