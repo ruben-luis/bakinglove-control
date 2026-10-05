@@ -357,9 +357,13 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
                 <MapPin size={15} color={PINK_TEXT} style={{ flexShrink: 0 }} />
                 <b style={{ fontWeight: 700 }}>Calle Del Sol #68, Bello Horizonte</b>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
                 <MapPin size={15} color={PINK_TEXT} style={{ flexShrink: 0 }} />
                 <b style={{ fontWeight: 700 }}>Local 2, C Tulipanes, San Ramon</b>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <MapPin size={15} color={PINK_TEXT} style={{ flexShrink: 0 }} />
+                <b style={{ fontWeight: 700 }}>Av. Orión 707, Floresta San Andrés Cholula</b>
               </div>
             </div>
           </div>
