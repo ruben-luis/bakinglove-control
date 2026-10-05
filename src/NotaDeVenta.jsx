@@ -363,7 +363,7 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <MapPin size={15} color={PINK_TEXT} style={{ flexShrink: 0 }} />
-                <b style={{ fontWeight: 700 }}>Av. Orión 707, Floresta San Andrés Cholula</b>
+                <b style={{ fontWeight: 700 }}>Av. Orión 707, Floresta San Andrés Cholula, CD Judicial</b>
               </div>
             </div>
           </div>
