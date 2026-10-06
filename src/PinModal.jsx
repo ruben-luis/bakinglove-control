@@ -43,6 +43,16 @@ export async function verifyPin(entered) {
 
   const { token } = await resp.json()
   await signInWithCustomToken(auth, token)
+  // Mitigación barata (no garantizada) de una carrera conocida y sin fix
+  // oficial del SDK: signInWithCustomToken ya resuelve con el claim
+  // nipVerified en el ID token, pero el listener interno de Firestore que
+  // actualiza las credenciales de su conexión activa corre en su propia
+  // cola async y puede no haber terminado todavía. Forzar un refresh aquí
+  // le da un tick adicional para ponerse al día antes de que el código que
+  // llama a verifyPin() dispare el primer write. La red de seguridad real
+  // ante esta carrera es withPermissionRetry (firestoreRetry.js) en cada
+  // write protegido por NIP, no esto.
+  await auth.currentUser.getIdToken(true)
   return { ok: true }
 }
 

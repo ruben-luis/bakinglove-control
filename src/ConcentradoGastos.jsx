@@ -5,6 +5,7 @@ import { db } from './firebase'
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
 import { gastosBalanceDelta, mergeDeltas, isZeroDelta } from './balance'
 import { toIncrements } from './balanceSync'
+import { withPermissionRetry } from './firestoreRetry'
 
 const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DIAS    = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
@@ -241,11 +242,12 @@ export default function ConcentradoGastos({ weekStart, onBack }) {
       // NIP recién emitido aún no se propagó a la conexión de Firestore,
       // el servidor rechaza el write (PERMISSION_DENIED) aunque la caché
       // local optimista lo dé por bueno — hay que esperarlo y reportar
-      // el error en vez de asumir éxito.
-      await Promise.all([
+      // el error en vez de asumir éxito. withPermissionRetry reintenta una
+      // vez si eso pasa, en vez de fallar directo.
+      await withPermissionRetry(() => Promise.all([
         ...toDelete.map(g => deleteDoc(doc(db, 'gastos', g.id))),
         ...filled.map(g => setDoc(doc(db, 'gastos', g.id), g)),
-      ])
+      ]))
 
       if (weekStart) {
         const deltas = [

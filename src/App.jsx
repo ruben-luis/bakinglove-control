@@ -10,6 +10,7 @@ import {
   notaBalanceDelta, isZeroDelta, addDelta, getNotasCutoffISO,
 } from './balance'
 import { toIncrements } from './balanceSync'
+import { withPermissionRetry } from './firestoreRetry'
 import Dashboard from './Dashboard'
 import NotaDeVenta from './NotaDeVenta'
 import HistorialNotas from './HistorialNotas'
@@ -258,9 +259,12 @@ export default function App() {
     const freshSrRows = srSnap.docs.map(d => d.data())
     const freshCdjRows = cdjSnap.docs.map(d => d.data())
     const snapshot = computeBalanceFull(freshNotas, freshGastos, freshSrRows, freshCdjRows, todayISO)
-    await setDoc(doc(db, 'cortes_semana', `manual_${todayISO}_${Date.now()}`), {
+    // Solo el write final va con retry: las lecturas de arriba no están
+    // gateadas por NIP, así que no tiene sentido repetirlas si el único
+    // paso que puede chocar con la carrera de claims es este setDoc.
+    await withPermissionRetry(() => setDoc(doc(db, 'cortes_semana', `manual_${todayISO}_${Date.now()}`), {
       ...snapshot, tipo: 'manual', savedAt: new Date().toISOString(),
-    })
+    }))
   }
 
   // ── Sync pagos SR de una nota → sanramon_rows ────────────────
@@ -374,7 +378,15 @@ export default function App() {
     else if (pinAction === 'nav-gastos') { setView('gastos'); setPinAction(null) }
     else if (pinAction === 'nav-cortes') { setView('cortes'); setPinAction(null) }
     else if (pinAction === 'change-verify') { setPinAction('change-new') }
-    else if (pinAction === 'change-new') { savePin(pin).then(() => setPinAction(null)) }
+    else if (pinAction === 'change-new') {
+      withPermissionRetry(() => savePin(pin))
+        .then(() => setPinAction(null))
+        .catch(err => {
+          console.error(err)
+          window.alert('No se pudo cambiar el NIP. Intenta de nuevo.')
+          setPinAction(null)
+        })
+    }
   }
 
   const pinTitle = pinAction === 'change-new' ? 'Ingresa tu nuevo NIP' : 'Ingresa tu NIP'
