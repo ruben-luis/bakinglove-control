@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Save, Check } from 'lucide-react'
 import { db } from './firebase'
-import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, getDocsFromServer, query, where, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
 import { srRowBalanceDelta, mergeDeltas, isZeroDelta } from './balance'
 import { toIncrements } from './balanceSync'
 
@@ -104,14 +104,22 @@ export default function SanRamonView({ onBack, weekStart }) {
     })
   }, [])
 
-  function persist(rows, fecha) {
+  // Antes de calcular qué borrar/reescribir, relee del servidor el estado
+  // real de ESE día (no el snapshot de montaje, que puede llevar horas
+  // desactualizado si otra pantalla/dispositivo tocó estas filas mientras
+  // esta vista seguía abierta — ej. al editar el pago SR de una nota). Sin
+  // esto, guardar aquí podía resucitar filas ya borradas y dejar el
+  // balance desincronizado del historial real.
+  async function persist(rows, fecha) {
+    const freshSnap = await getDocsFromServer(query(collection(db, 'sanramon_rows'), where('fecha', '==', fecha)))
+    const prevForDay = freshSnap.docs.map(d => d.data())
+
     const sanitize = r => {
       const n = parseFloat(r.precio)
       return { ...r, precio: isNaN(n) ? 0 : n }
     }
     const filled    = rows.filter(r => r.producto || r.precio || r.tipo).map(sanitize)
     const others    = allRowsRef.current.filter(r => r.fecha !== fecha)
-    const prevForDay = allRowsRef.current.filter(r => r.fecha === fecha)
     const newAll    = [...others, ...filled]
     allRowsRef.current = newAll
 
@@ -131,8 +139,8 @@ export default function SanRamonView({ onBack, weekStart }) {
     }
   }
 
-  function switchDate(newDate) {
-    if (dirty) persist(dayRows, filterDate)
+  async function switchDate(newDate) {
+    if (dirty) await persist(dayRows, filterDate)
     setDirty(false)
     setFilterDate(newDate)
     setDayRows(padRows(allRowsRef.current.filter(r => r.fecha === newDate), newDate))
@@ -168,8 +176,8 @@ export default function SanRamonView({ onBack, weekStart }) {
     setDirty(true)
   }
 
-  function handleGuardar() {
-    persist(dayRows, filterDate)
+  async function handleGuardar() {
+    await persist(dayRows, filterDate)
     setDirty(false)
   }
 
@@ -180,7 +188,7 @@ export default function SanRamonView({ onBack, weekStart }) {
   // los cálculos de saldo dejan de tener que sumar desde el checkpoint
   // original (el único que existía) y solo suman desde este cierre.
   async function handleCerrarSemana() {
-    if (dirty) persist(dayRows, filterDate)
+    if (dirty) await persist(dayRows, filterDate)
     const d = new Date(todayISO() + 'T12:00:00')
     d.setDate(d.getDate() + 1)
     const manana = localISO(d)
