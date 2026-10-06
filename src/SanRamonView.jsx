@@ -63,13 +63,6 @@ const SALIDA_BG = '#fbe0ea'; const SALIDA_TX = '#d9748f'
 const NAVY      = '#1f2b5e'
 const LINE      = '#bfbfc6'; const LINE_SOFT = '#d7d7dd'
 
-const CHECK = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"
-    strokeLinecap="round" strokeLinejoin="round" style={{ width: 10, height: 10 }}>
-    <path d="M4 12l5 5L20 6"/>
-  </svg>
-)
-
 export default function SanRamonView({ onBack, weekStart }) {
   const allRowsRef = useRef([])
   const saldosRef  = useRef({})
