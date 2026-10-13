@@ -162,7 +162,12 @@ export function rolloverBalance(balance, notas, gastos, srRows, cdjRows, newWeek
   // un dispositivo calcula mal la semana actual).
   if (newWeekStart <= balance.weekStart) return balance
 
-  const acc = { ...balance }
+  // Base en empty() + balance (no solo balance): si el documento guardado
+  // es de antes de que existiera algún campo (ej. prevCdj* antes de que
+  // CD Judicial existiera), ese campo arranca en 0 en vez de `undefined`,
+  // evitando `undefined += m` → NaN que luego se vuelve permanente al
+  // sumarse con FieldValue.increment() en cada escritura futura.
+  const acc = { ...empty(), ...balance }
   const from = balance.weekStart
   const to   = newWeekStart
   const test = pf => between(pf, from, to)
