@@ -15,6 +15,16 @@ const todayISO = () => {
 const localISO = d =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 
+const byCreatedAt = (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+const horaCorta = iso => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const h24 = d.getHours()
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  const m = String(d.getMinutes()).padStart(2, '0')
+  return `${h12}:${m} ${h24 < 12 ? 'am' : 'pm'}`
+}
+
 function emptyRow(fecha) {
   return {
     id: crypto.randomUUID(),
@@ -90,7 +100,7 @@ export default function CdJudicialView({ onBack, weekStart }) {
       allRowsRef.current = rows
       saldosRef.current  = saldos
       const today = todayISO()
-      setDayRows(padRows(rows.filter(r => r.fecha === today), today))
+      setDayRows(padRows(rows.filter(r => r.fecha === today).sort(byCreatedAt), today))
       const ini = computeSaldoInicial(today, saldos, rows)
       setSaldoIni(ini != null ? String(ini) : '0.00')
       setReady(true)
@@ -136,7 +146,7 @@ export default function CdJudicialView({ onBack, weekStart }) {
     if (dirty) await persist(dayRows, filterDate)
     setDirty(false)
     setFilterDate(newDate)
-    setDayRows(padRows(allRowsRef.current.filter(r => r.fecha === newDate), newDate))
+    setDayRows(padRows(allRowsRef.current.filter(r => r.fecha === newDate).sort(byCreatedAt), newDate))
     const ini = computeSaldoInicial(newDate, saldosRef.current, allRowsRef.current)
     setSaldoIni(ini != null ? String(ini) : '0.00')
   }
@@ -298,7 +308,7 @@ export default function CdJudicialView({ onBack, weekStart }) {
             <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ ...thBase, width: 28 }}>#</th>
+                  <th style={{ ...thBase, width: 40 }}>#</th>
                   <th style={{ ...thBase, width: 54 }}>TIPO</th>
                   <th style={{ ...thBase, textAlign: 'left', paddingLeft: 8 }}>PRODUCTO</th>
                   <th style={{ ...thBase, width: 80 }}>$ TOTAL</th>
@@ -317,9 +327,12 @@ export default function CdJudicialView({ onBack, weekStart }) {
                       onMouseEnter={e => { if (!isV && !isS) e.currentTarget.style.background = '#fafaff' }}
                       onMouseLeave={e => { if (!isV && !isS) e.currentTarget.style.background = '#fff' }}
                     >
-                      {/* # */}
-                      <td style={{ ...tdBase, textAlign: 'center', fontSize: 11, color: '#aaa', fontWeight: 700 }}>
-                        {String(i + 1).padStart(2, '0')}
+                      {/* Hora + # */}
+                      <td style={{ ...tdBase, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.25 }}>
+                          <span style={{ fontSize: 8, color: '#bbb', fontWeight: 600, whiteSpace: 'nowrap' }}>{horaCorta(row.createdAt)}</span>
+                          <span style={{ fontSize: 11, color: '#aaa', fontWeight: 700 }}>{String(i + 1).padStart(2, '0')}</span>
+                        </div>
                       </td>
 
                       {isNota ? (
