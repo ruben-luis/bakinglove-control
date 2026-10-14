@@ -186,17 +186,25 @@ export default function SanRamonView({ onBack, weekStart }) {
 
   // ── Cierra el saldo acumulado de San Ramón a hoy ──────────────
   // Guarda un nuevo checkpoint en sanramon_saldos (saldo inicial de
-  // mañana). computeSaldoInicial ya busca el checkpoint más reciente
-  // <= la fecha pedida, así que en cuanto exista este nuevo registro,
-  // los cálculos de saldo dejan de tener que sumar desde el checkpoint
-  // original (el único que existía) y solo suman desde este cierre.
+  // mañana) calculado directamente del saldo inicial de HOY + ventas -
+  // salidas de HOY. Antes esto se recalculaba con computeSaldoInicial(mañana,
+  // ...), que requiere que ya exista al menos un checkpoint previo — si
+  // la sucursal nunca tuvo uno (ej. recién abierta), computeSaldoInicial
+  // devolvía null y la función se salía sin guardar nada ni avisar. Al
+  // calcular desde el saldo inicial de hoy (que siempre cae a 0 si no hay
+  // checkpoint, igual que lo que ya se muestra en pantalla) este botón
+  // puede crear el primer checkpoint solo, sin depender de uno anterior.
   async function handleCerrarSemana() {
     if (dirty) await persist(dayRows, filterDate)
-    const d = new Date(todayISO() + 'T12:00:00')
+    const hoy = todayISO()
+    const d = new Date(hoy + 'T12:00:00')
     d.setDate(d.getDate() + 1)
     const manana = localISO(d)
-    const saldo = computeSaldoInicial(manana, saldosRef.current, allRowsRef.current)
-    if (saldo == null) return
+    const saldoIniHoy = computeSaldoInicial(hoy, saldosRef.current, allRowsRef.current) ?? 0
+    const rowsHoy    = allRowsRef.current.filter(r => r.fecha === hoy)
+    const ventasHoy  = rowsHoy.filter(r => r.tipo === 'venta').reduce((s, r)  => s + (parseFloat(r.precio) || 0), 0)
+    const salidasHoy = rowsHoy.filter(r => r.tipo === 'salida').reduce((s, r) => s + (parseFloat(r.precio) || 0), 0)
+    const saldo = saldoIniHoy + ventasHoy - salidasHoy
     await setDoc(doc(db, 'sanramon_saldos', manana), { saldo })
     saldosRef.current = { ...saldosRef.current, [manana]: saldo }
     setCerrada(true)
