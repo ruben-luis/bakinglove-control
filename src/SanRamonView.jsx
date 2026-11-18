@@ -216,10 +216,13 @@ export default function SanRamonView({ onBack, weekStart }) {
   const totalSalidas = dayRows.reduce((s, r) => r.tipo === 'salida' ? s + (parseFloat(r.precio) || 0) : s, 0)
   const saldoFinal   = (parseFloat(saldoIni) || 0) + totalVentas - totalSalidas
 
-  // Ventas - salidas del día, agrupado por método de pago (EF/TN/TR/BJ)
+  // Ventas - salidas del día, agrupado por método de pago (EF/TN/TR/BJ).
+  // "Banco Day" (método automático de pagos de nota que no son Efectivo ni
+  // Banco JORGE) es lo mismo que Terminal, así que se fusiona ahí.
   const totalesPorMetodo = METODOS.map(([m, label]) => {
-    const ventasM  = dayRows.reduce((s, r) => (r.tipo === 'venta'  && r.metodo === m) ? s + (parseFloat(r.precio) || 0) : s, 0)
-    const salidasM = dayRows.reduce((s, r) => (r.tipo === 'salida' && r.metodo === m) ? s + (parseFloat(r.precio) || 0) : s, 0)
+    const esDelGrupo = r => r.metodo === m || (m === 'Terminal' && r.metodo === 'Banco Day')
+    const ventasM  = dayRows.reduce((s, r) => (r.tipo === 'venta'  && esDelGrupo(r)) ? s + (parseFloat(r.precio) || 0) : s, 0)
+    const salidasM = dayRows.reduce((s, r) => (r.tipo === 'salida' && esDelGrupo(r)) ? s + (parseFloat(r.precio) || 0) : s, 0)
     return { metodo: m, label, total: ventasM - salidasM }
   })
   const isDiaHoy     = filterDate === todayISO()
