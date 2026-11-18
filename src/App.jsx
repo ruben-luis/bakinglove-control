@@ -270,10 +270,13 @@ export default function App() {
   // ── Sync pagos SR de una nota → sanramon_rows ────────────────
   const syncNotaSRPayments = async (nota) => {
     const existingSnap = await getDocs(query(collection(db, 'sanramon_rows'), where('notaId', '==', nota.id)))
+    const existingById = {}
+    existingSnap.docs.forEach(d => { existingById[d.id] = d.data() })
     await Promise.all(existingSnap.docs.map(d => deleteDoc(d.ref)))
     const srPagos = (nota.pagos || []).filter(p => p.sucursal === 'SR' && p.monto && p.fecha && p.metodoPago)
     await Promise.all(srPagos.map((p, idx) => {
       const id = `nota_${nota.id}_sr_${idx}`
+      const prev = existingById[id]
       return setDoc(doc(db, 'sanramon_rows', id), {
         id,
         fecha: p.fecha,
@@ -283,7 +286,7 @@ export default function App() {
         metodo: p.metodoPago === 'Efectivo' ? 'Efectivo' : p.metodoPago === 'Banco JORGE' ? 'Banco JORGE' : 'Banco Day',
         fromNota: true,
         notaId: nota.id,
-        createdAt: new Date().toISOString(),
+        createdAt: prev?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
     }))
@@ -292,10 +295,13 @@ export default function App() {
   // ── Sync pagos CDJ de una nota → cdjudicial_rows ─────────────
   const syncNotaCDJPayments = async (nota) => {
     const existingSnap = await getDocs(query(collection(db, 'cdjudicial_rows'), where('notaId', '==', nota.id)))
+    const existingById = {}
+    existingSnap.docs.forEach(d => { existingById[d.id] = d.data() })
     await Promise.all(existingSnap.docs.map(d => deleteDoc(d.ref)))
     const cdjPagos = (nota.pagos || []).filter(p => p.sucursal === 'CDJ' && p.monto && p.fecha && p.metodoPago)
     await Promise.all(cdjPagos.map((p, idx) => {
       const id = `nota_${nota.id}_cdj_${idx}`
+      const prev = existingById[id]
       return setDoc(doc(db, 'cdjudicial_rows', id), {
         id,
         fecha: p.fecha,
@@ -305,7 +311,7 @@ export default function App() {
         metodo: p.metodoPago === 'Efectivo' ? 'Efectivo' : p.metodoPago === 'Banco JORGE' ? 'Banco JORGE' : 'Banco Day',
         fromNota: true,
         notaId: nota.id,
-        createdAt: new Date().toISOString(),
+        createdAt: prev?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
     }))
