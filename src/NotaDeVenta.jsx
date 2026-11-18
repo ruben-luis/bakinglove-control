@@ -31,7 +31,7 @@ const fmtMoney  = (n) => n > 0 ? `$${Number(n).toLocaleString('es-MX', { minimum
 const fmtDate   = (iso) => iso ? iso.split('-').reverse().join('/') : ''
 
 const emptyP = () => ({ cantidad: '', descripcion: '', precioU: '' })
-const emptyG = () => ({ monto: '', fecha: todayISO(), met: null, sucursal: 'BKL' })
+const emptyG = () => ({ monto: '', fecha: todayISO(), met: null, sucursal: 'BKL', capturadoAt: null })
 
 const METODOS = ['Terminal', 'Transferencia', 'Efectivo', 'Banco JORGE']
 
@@ -229,7 +229,7 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
   })
   const [pagos, setPagos] = useState(() => {
     if (!notaInicial?.pagos) return [emptyG(), emptyG(), emptyG()]
-    const existing = notaInicial.pagos.map(p => ({ monto: p.monto || '', fecha: p.fecha || todayISO(), met: p.metodoPago || null, sucursal: p.sucursal || 'BKL' }))
+    const existing = notaInicial.pagos.map(p => ({ monto: p.monto || '', fecha: p.fecha || todayISO(), met: p.metodoPago || null, sucursal: p.sucursal || 'BKL', capturadoAt: p.capturadoAt || null }))
     return [...existing, emptyG(), emptyG(), emptyG()]
   })
   const [saving, setSaving] = useState(false)
@@ -243,10 +243,16 @@ export default function NotaDeVenta({ onBack, onSave, onUpdate, notaInicial = nu
   const resta        = totalGeneral - totalG
 
   const updP = (i, f, v) => setProds(a => { const n = [...a]; n[i] = { ...n[i], [f]: v }; return n })
-  const updG = (i, f, v) => setPagos(a => { const n = [...a]; n[i] = { ...n[i], [f]: v }; return n })
+  const updG = (i, f, v) => setPagos(a => {
+    const n = [...a]
+    const row = { ...n[i], [f]: v }
+    if (!row.capturadoAt && row.monto && row.met) row.capturadoAt = new Date().toISOString()
+    n[i] = row
+    return n
+  })
   const updO = (i, v)    => setObs(a  => { const n = [...a]; n[i] = v; return n })
 
-  const buildPagos = () => pagos.map(p => ({ monto: p.monto, fecha: p.fecha, metodoPago: p.met, sucursal: p.sucursal || 'BKL' }))
+  const buildPagos = () => pagos.map(p => ({ monto: p.monto, fecha: p.fecha, metodoPago: p.met, sucursal: p.sucursal || 'BKL', capturadoAt: p.capturadoAt || null }))
 
   const save = async () => {
     if (saving) return

@@ -286,7 +286,7 @@ export default function App() {
         metodo: p.metodoPago === 'Efectivo' ? 'Efectivo' : p.metodoPago === 'Banco JORGE' ? 'Banco JORGE' : 'Banco Day',
         fromNota: true,
         notaId: nota.id,
-        createdAt: prev?.createdAt || new Date().toISOString(),
+        createdAt: p.capturadoAt || prev?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
     }))
@@ -311,7 +311,7 @@ export default function App() {
         metodo: p.metodoPago === 'Efectivo' ? 'Efectivo' : p.metodoPago === 'Banco JORGE' ? 'Banco JORGE' : 'Banco Day',
         fromNota: true,
         notaId: nota.id,
-        createdAt: prev?.createdAt || new Date().toISOString(),
+        createdAt: p.capturadoAt || prev?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
     }))
