@@ -72,6 +72,7 @@ const VENTA_BG  = '#d9efd2'; const VENTA_TX  = '#5d8a49'
 const SALIDA_BG = '#fbe0ea'; const SALIDA_TX = '#d9748f'
 const NAVY      = '#1f2b5e'
 const LINE      = '#bfbfc6'; const LINE_SOFT = '#d7d7dd'
+const METODOS   = [['Efectivo','EF'],['Terminal','TN'],['Transferencia','TR'],['Banco JORGE','BJ']]
 
 export default function SanRamonView({ onBack, weekStart }) {
   const allRowsRef = useRef([])
@@ -214,6 +215,13 @@ export default function SanRamonView({ onBack, weekStart }) {
   const totalVentas  = dayRows.reduce((s, r) => r.tipo === 'venta'  ? s + (parseFloat(r.precio) || 0) : s, 0)
   const totalSalidas = dayRows.reduce((s, r) => r.tipo === 'salida' ? s + (parseFloat(r.precio) || 0) : s, 0)
   const saldoFinal   = (parseFloat(saldoIni) || 0) + totalVentas - totalSalidas
+
+  // Ventas - salidas del día, agrupado por método de pago (EF/TN/TR/BJ)
+  const totalesPorMetodo = METODOS.map(([m, label]) => {
+    const ventasM  = dayRows.reduce((s, r) => (r.tipo === 'venta'  && r.metodo === m) ? s + (parseFloat(r.precio) || 0) : s, 0)
+    const salidasM = dayRows.reduce((s, r) => (r.tipo === 'salida' && r.metodo === m) ? s + (parseFloat(r.precio) || 0) : s, 0)
+    return { metodo: m, label, total: ventasM - salidasM }
+  })
   const isDiaHoy     = filterDate === todayISO()
 
   const fmt = n => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -452,6 +460,28 @@ export default function SanRamonView({ onBack, weekStart }) {
           >
             <Plus size={12} strokeWidth={2.5} /> Agregar fila
           </button>
+        </div>
+
+        {/* Desglose por método de pago */}
+        <div className="border-2 border-ink rounded-2xl overflow-hidden shadow-hard bg-white">
+          <div style={{ background: '#f4f3f6', textAlign: 'center', padding: '6px', fontSize: 10, fontWeight: 800, letterSpacing: 2, color: '#666', borderBottom: `1px solid ${LINE}` }}>
+            DESGLOSE POR MÉTODO
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+            {totalesPorMetodo.map(({ metodo, total }, idx) => (
+              <div key={metodo} style={{
+                padding: '10px 14px',
+                borderRight: idx % 2 === 0 ? `1px solid ${LINE_SOFT}` : 'none',
+                borderBottom: idx < 2 ? `1px solid ${LINE_SOFT}` : 'none',
+              }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, color: '#9a9aa3', marginBottom: 4 }}>{metodo.toUpperCase()}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ color: '#9a9aa3', fontWeight: 700, fontSize: 14 }}>$</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: total >= 0 ? '#1a51c4' : SALIDA_TX }}>{fmt(total)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Guardar */}
